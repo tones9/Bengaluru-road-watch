@@ -206,7 +206,9 @@ def match_roads(rows):
     """Link tenders to road segments: road name appears in the title and the ward number/name matches."""
     names = json.load(open("data/roads/names.json"))
     wards = {f["properties"]["key"]: f["properties"] for f in json.load(open("data/wards.geojson"))["features"]}
-    by_corp = {}
+    by_corp, name_wards = {}, {}
+    for n in names:
+        name_wards[n[0]] = name_wards.get(n[0], 0) + 1
     for n in names:
         if len(n[0]) < 8 or not re.search(r"(road|main|cross|street|avenue|marg|layout|circle)", n[0], re.I):
             continue
@@ -235,6 +237,9 @@ def match_roads(rows):
             for n in pool:
                 if abs(n[4] - site[0]) < 0.002 and abs(n[5] - site[1]) < 0.002 and norm(n[0]).strip() in t:
                     hits.append(n)
+        if not wards_hit and not (site and hits):
+            # without a ward, only trust distinctive names (not "2nd Cross Road") that exist in few wards
+            hits = [h for h in hits if not re.match(r"^\s*\d+\s*(st|nd|rd|th)?\b", h[0], re.I) and name_wards.get(h[0], 0) <= 3]
         r["wards"] = sorted(wards_hit)
         # names.json has one entry per (name, ward); keep the matched ones (cap to avoid generic names flooding)
         r["roads"] = [[h[1], h[2], h[0], h[3]] for h in hits[:12]]
@@ -267,6 +272,9 @@ def main():
                 if rec[0] in ids:
                     geom[str(rec[0])] = rec
     cons = osm_construction(log)
+    if not cons and os.path.exists("data/works.json"):
+        cons = json.load(open("data/works.json")).get("construction", [])
+        status["kept_previous_construction"] = True
     status["osm_construction"] = len(cons)
     status["log"] = log[:40]
     out = {"generated": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()), "status": status,
