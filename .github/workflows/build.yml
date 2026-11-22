@@ -2,6 +2,9 @@ name: Build and publish
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Road works (tenders + construction)"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       refresh_roads:
