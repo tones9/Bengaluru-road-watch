@@ -30,5 +30,6 @@ for q in ["pothole", "road cutting", "road history", "patch work", "asphalting",
             out["opencity:" + q] = {"parse_error": repr(e), "head": r["body"][:300]}
     else:
         out["opencity:" + q] = r
+import os; os.makedirs("probe", exist_ok=True)
 json.dump(out, open("probe/out.json", "w"), indent=1)
 print("done")
