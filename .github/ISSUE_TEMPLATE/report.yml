@@ -1,0 +1,44 @@
+name: Report a broken road
+description: Add a dated, public report for one road stretch in South Bengaluru
+title: "[Road] "
+labels: ["report"]
+body:
+  - type: input
+    id: road_id
+    attributes:
+      label: Road ID
+      description: Filled in automatically when you tap "Report publicly" on the map.
+    validations:
+      required: true
+  - type: input
+    id: road_name
+    attributes:
+      label: Road name
+  - type: dropdown
+    id: problem
+    attributes:
+      label: Problem
+      options:
+        - Potholes
+        - Crumbling / uneven surface
+        - Dug up and not restored
+        - Waterlogging
+        - Unfinished construction
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: since
+    attributes:
+      label: Broken since (approx.)
+      description: e.g. "June 2026" or "over a year"
+  - type: input
+    id: complaint
+    attributes:
+      label: Official complaint number
+      description: From 1533 / Namma Bengaluru (Sahaaya) app, if you filed one
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Drag photos here. A dated photo is the strongest evidence.

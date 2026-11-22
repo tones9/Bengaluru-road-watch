@@ -1,0 +1,49 @@
+name: Record a promise about a road
+description: A candidate, MLA or official promised to fix a road. Record it with a source.
+title: "[Promise] "
+labels: ["promise"]
+body:
+  - type: input
+    id: road_id
+    attributes:
+      label: Road ID
+    validations:
+      required: true
+  - type: input
+    id: road_name
+    attributes:
+      label: Road name
+  - type: input
+    id: who
+    attributes:
+      label: Who made the promise
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Their role
+      options:
+        - Corporator candidate (GBA election)
+        - MLA
+        - Corporation official
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: promise
+    attributes:
+      label: What was promised
+    validations:
+      required: true
+  - type: input
+    id: deadline
+    attributes:
+      label: Promised deadline
+  - type: input
+    id: source
+    attributes:
+      label: Source (link or where it was said)
+      description: News link, video, pamphlet photo, public meeting. No source = not published.
+    validations:
+      required: true
