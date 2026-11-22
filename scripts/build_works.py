@@ -118,6 +118,61 @@ def enrich(rows, log, limit=1200):
         time.sleep(0.7)
 
 
+CT = "https://civictrace-bengaluru.vercel.app/data"
+BUYER = {"BCCC": "Central", "BECC": "East", "BNCC": "North", "BSCC": "South", "BWCC": "West",
+         "GBA": "GBA", "BSMILE": "B-SMILE", "BBMP": "BBMP"}
+
+
+def civictrace_tenders(log):
+    """Fallback: the KPPP portal blocks GitHub's servers, so read CivicTrace's public export of the same
+    KPPP records (github.com/dakshinsiva/civic-trace, MIT)."""
+    rows = {}
+    try:
+        idx, _ = req(f"{CT}/tenders-index.json")
+    except Exception as e:
+        log.append(f"civictrace index: {e!r}")
+        return rows
+    print(f"CivicTrace index: {len(idx)} tenders")
+    keep = {}
+    for t in idx:
+        if t.get("buyer") not in BUYER:
+            continue
+        title = t.get("title") or ""
+        if not ROADISH.search(title + " " + (t.get("work_category") or "")) or NOT_ROAD.search(title):
+            continue
+        keep[int(t["nit_id"])] = t
+    buckets = sorted({f"b{n % 256:03d}" for n in keep})
+    print(f"{len(keep)} road-related; fetching {len(buckets)} detail files")
+    for b in buckets:
+        try:
+            docs, _ = req(f"{CT}/tenders/{b}.json")
+        except Exception as e:
+            log.append(f"civictrace {b}: {e!r}")
+            continue
+        for k, d in docs.items():
+            n = int(k)
+            if n not in keep:
+                continue
+            pub = (d.get("published_at") or "")[:10]
+            if pub and pub < "2025-01-01":
+                continue
+            sel = d.get("selection") or {}
+            loc = d.get("location") or None
+            rows[n] = {
+                "nit": n, "no": d.get("tender_number"), "title": (d.get("title") or "").strip(),
+                "status": d.get("status"), "corp": BUYER[d.get("buyer_code") or keep[n]["buyer"]],
+                "office": d.get("division"), "category": d.get("work_category"), "ecv": d.get("ecv"),
+                "published": pub or None, "bids_close": (d.get("close_at_final") or "")[:10] or None,
+                "awarded": (d.get("award_date") or "")[:10] or None,
+                "contractor": sel.get("supplier_name"), "bid": sel.get("bid_value"),
+                "site": [loc["lat"], loc["lon"], loc.get("name")] if loc else None,
+                "via": "CivicTrace",
+            }
+        time.sleep(0.3)
+    print(f"{len(rows)} road tenders since 2025")
+    return rows
+
+
 def osm_construction(log):
     q = ('[out:json][timeout:180];(way["highway"="construction"](12.83,77.455,13.145,77.79);'
          'way["construction"]["highway"](12.83,77.455,13.145,77.79););out tags geom;')
@@ -174,6 +229,12 @@ def match_roads(rows):
             if nn and f" {nn} " in f" {t} ":
                 if not wards_hit or n[3] in wards_hit:
                     hits.append(n)
+        site = r.get("site")
+        if site and not hits:
+            import math
+            for n in pool:
+                if abs(n[4] - site[0]) < 0.002 and abs(n[5] - site[1]) < 0.002 and norm(n[0]).strip() in t:
+                    hits.append(n)
         r["wards"] = sorted(wards_hit)
         # names.json has one entry per (name, ward); keep the matched ones (cap to avoid generic names flooding)
         r["roads"] = [[h[1], h[2], h[0], h[3]] for h in hits[:12]]
@@ -186,6 +247,10 @@ def main():
     status["kppp_tenders"] = len(rows)
     if rows:
         enrich(rows, log)
+    else:
+        rows = civictrace_tenders(log)
+        status["civictrace_tenders"] = len(rows)
+    if rows:
         match_roads(rows)
     # geometry for matched road segments so the map can draw them without loading every tile
     want = {}
