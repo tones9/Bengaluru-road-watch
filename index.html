@@ -44,7 +44,7 @@ button,.btn{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:1
 .item a{color:var(--blue)}.muted{color:var(--muted);font-size:13px;line-height:1.45}
 .src a{color:var(--muted);font-size:12px;display:block;margin:3px 0}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;z-index:2000;font-size:14px;display:none}
-.legend{position:fixed;left:10px;bottom:10px;z-index:999;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);line-height:1.6}
+.legend{position:fixed;left:10px;bottom:24px;z-index:999;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);line-height:1.6}
 .legend i{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
 .loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;background:rgba(255,255,255,.85);font-weight:600}
 </style>
@@ -60,7 +60,7 @@ button,.btn{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:1
   <div id="results"></div>
   <div class="banner" id="banner"></div>
 </div>
-<div class="legend"><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#8a94a6"></i>No reports yet · tap any road</div></div>
+<div class="legend"><div id="zoomhint" style="font-weight:600;margin-bottom:4px">Zoom in to tap side roads</div><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#2563eb;opacity:.35"></i>No reports yet · tap any road</div></div>
 <aside class="sheet" id="sheet" aria-live="polite"></aside>
 <div class="toast" id="toast"></div>
 <div class="loading" id="loading">Loading South Bengaluru roads…</div>
@@ -74,10 +74,15 @@ const toast = m => { const t = $("#toast"); t.textContent = m; t.style.display =
 
 const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([12.905, 77.6], 13);
 L.control.zoom({ position: "bottomright" }).addTo(map);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png", {
-  maxZoom: 19, subdomains: "abcd",
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a> · Wards: GBA 2025 via OpenCity'
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Wards: GBA 2025 via OpenCity'
 }).addTo(map);
+const MAJOR = new Set(["motorway","trunk","primary","secondary","tertiary"]);
+const MINOR_ZOOM = 16;
+const majorGroup = L.layerGroup().addTo(map), minorGroup = L.layerGroup();
+function syncMinor() { const on = map.getZoom() >= MINOR_ZOOM; if (on && !map.hasLayer(minorGroup)) minorGroup.addTo(map); if (!on && map.hasLayer(minorGroup)) map.removeLayer(minorGroup); const h = document.querySelector("#zoomhint"); if (h) h.style.display = on ? "none" : "block"; }
+map.on("zoomend", syncMinor);
 const renderer = L.canvas({ tolerance: 8 });
 
 let OFF, WARDS = {}, ROADS = [], REPORTS = {}, byId = {}, selected = null, wardLayer;
@@ -210,12 +215,16 @@ function highlight(id) {
 function drawRoads() {
   for (const r of ROADS) {
     const f = r[5], ll = []; for (let i = 0; i < f.length; i += 2) ll.push([f[i+1], f[i]]);
-    const h = r[2].replace("_link","");
-    const pl = L.polyline(ll, { renderer, color: color(r[0]), weight: WEIGHT[h] || 2.5, opacity: status(r[0]).c === "grey" ? .55 : .95 });
+    const h = r[2].replace("_link",""), st = status(r[0]).c, major = MAJOR.has(h);
+    const pl = st === "grey"
+      ? L.polyline(ll, { renderer, color: "#2563eb", weight: major ? 5 : 4, opacity: major ? 0.18 : 0.12 })
+      : L.polyline(ll, { renderer, color: color(r[0]), weight: (WEIGHT[h] || 3) + 2, opacity: .9 });
     pl.on("click", e => { L.DomEvent.stop(e); card(r[0]); });
-    pl.addTo(map); lines[r[0]] = pl;
+    pl.addTo(major || st !== "grey" ? majorGroup : minorGroup); lines[r[0]] = pl;
   }
+  syncMinor();
 }
+function focusRoad(id) { const b = lines[id].getBounds(); map.fitBounds(b, { maxZoom: 17 }); if (map.getZoom() < MINOR_ZOOM) map.setView(b.getCenter(), MINOR_ZOOM); }
 
 function nearest(lat, lng) {
   let best = null, bd = 1e9; const kx = Math.cos(lat * Math.PI / 180);
@@ -235,7 +244,7 @@ $("#near").onclick = () => {
     const { latitude: la, longitude: lo } = p.coords;
     if (me) map.removeLayer(me); me = L.circleMarker([la, lo], { radius: 8, color: "#fff", weight: 3, fillColor: "#1d4ed8", fillOpacity: 1 }).addTo(map);
     const n = nearest(la, lo);
-    if (!n.r || n.m > 300) { map.setView([la, lo], 15); return toast("You're outside the South Bengaluru pilot area"); }
+    if (!n.r || n.m > 300) { map.fitBounds(wardLayer.getBounds().extend([la, lo])); return toast("You're outside the pilot area (South City Corporation). Search a road instead"); }
     map.setView([la, lo], 17); card(n.r[0]);
   }, () => toast("Location permission denied. Search instead"), { enableHighAccuracy: true, timeout: 10000 });
 };
@@ -254,7 +263,7 @@ $("#q").oninput = e => {
   box.style.display = "block";
   box.querySelectorAll("[data-i]").forEach(d => d.onclick = () => {
     const x = m[+d.dataset.i]; box.style.display = "none"; $("#q").value = x.t;
-    if (x.id) { map.fitBounds(lines[x.id].getBounds(), { maxZoom: 17 }); card(x.id); }
+    if (x.id) { focusRoad(x.id); card(x.id); }
     else wardLayer.eachLayer(l => { if (l.feature.properties.ward_no === x.ward) map.fitBounds(l.getBounds()); });
   });
 };
@@ -272,7 +281,7 @@ $("#q").oninput = e => {
     const nRep = Object.values(REPORTS).flat().filter(x => x.kind === "report").length;
     $("#banner").innerHTML = `<b>No elected corporators since 2020.</b> GBA election deadline: ${days > 0 ? days + " days" : "passed"}. Tap a road to see who's accountable${nRep ? ` · ${nRep} resident reports so far` : ""}.`;
     if (!ROADS.length) $("#banner").innerHTML += "<br>Road data is still being downloaded; check back in a few minutes.";
-    const h = location.hash.match(/^#road-(\d+)$/); if (h && byId[h[1]]) { map.fitBounds(lines[h[1]].getBounds(), { maxZoom: 17 }); card(h[1]); }
+    const h = location.hash.match(/^#road-(\d+)$/); if (h && byId[h[1]]) { focusRoad(h[1]); card(h[1]); }
   } catch (e) { console.error(e); toast("Couldn't load data"); }
   $("#loading").remove();
 })();
