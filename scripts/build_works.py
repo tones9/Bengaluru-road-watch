@@ -173,6 +173,9 @@ def civictrace_tenders(log):
     return rows
 
 
+SKIP_KINDS = {"service", "footway", "path", "cycleway", "steps", "track", "pedestrian", "bridleway", "corridor", "platform"}
+
+
 def osm_construction(log):
     q = ('[out:json][timeout:180];(way["highway"="construction"](12.83,77.455,13.145,77.79);'
          'way["construction"]["highway"](12.83,77.455,13.145,77.79););out tags geom;')
@@ -184,7 +187,7 @@ def osm_construction(log):
             out = []
             for el in els:
                 t = el.get("tags", {})
-                if "geometry" not in el:
+                if "geometry" not in el or (t.get("construction") or "") in SKIP_KINDS:
                     continue
                 out.append({"id": el["id"], "name": t.get("name", ""), "kind": t.get("construction") or t.get("highway"),
                             "start": t.get("start_date", ""), "opening": t.get("opening_date", ""),

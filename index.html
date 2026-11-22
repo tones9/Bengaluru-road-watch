@@ -223,9 +223,11 @@ function drawWorks(w) {
     if (lines[r[0]]) { [majorGroup, minorGroup].forEach(g => g.removeLayer(lines[r[0]])); }
     lines[r[0]] = L.polyline(latlngs(r[5]), { renderer, interactive: false, color: "#ea580c", weight: (WEIGHT[r[2].replace("_link","")] || 3) + 2, opacity: .85 }).addTo(worksGroup);
   }
-  for (const c of w.construction || []) {
+  const SKIP = new Set(["service", "footway", "path", "cycleway", "steps", "track", "pedestrian", "bridleway", "corridor", "platform"]);
+  w.construction = (w.construction || []).filter(c => !SKIP.has(c.kind));
+  for (const c of w.construction) {
     const pl = L.polyline(latlngs(c.geom), { renderer, color: "#7c3aed", weight: 6, opacity: .85, dashArray: "8 6" }).addTo(worksGroup);
-    pl.bindPopup(`<b>${esc(c.name || "Unnamed road")}</b><br>Under construction (${esc(c.kind || "road")})${c.start ? "<br>Started: " + esc(c.start) : ""}${c.opening ? "<br>Expected opening: " + esc(c.opening) : "<br>No opening date recorded"}<br><a href="https://www.openstreetmap.org/way/${c.id}" target="_blank" rel="noopener">Source: OpenStreetMap</a>`);
+    pl.bindPopup(`<b>${esc(c.name || "Unnamed road")}</b><br>Under construction (${esc(c.kind || "road")})${c.start ? "<br>Started: " + esc(c.start) : ""}${c.opening ? "<br>Opening date in OpenStreetMap: " + esc(c.opening) + (c.opening < new Date().toISOString().slice(0, 10) ? " <i>(passed — may be out of date)</i>" : "") : "<br>No opening date recorded"}<br><a href="https://www.openstreetmap.org/way/${c.id}" target="_blank" rel="noopener">Source: OpenStreetMap</a>`);
     pl.on("click", e => L.DomEvent.stop(e));
   }
   const n = (w.tenders || []).length, nm = Object.keys(w.geom || {}).length;
