@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Road Watch · South Bengaluru</title>
-<meta name="description" content="Tap any road in South Bengaluru to see who is responsible for fixing it, what residents have reported, and what candidates have promised.">
+<title>Road Watch · Bengaluru</title>
+<meta name="description" content="Tap any road in Bengaluru to see who is responsible for fixing it, what residents have reported, and what candidates have promised.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@ button,.btn{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:1
 <div id="map"></div>
 <div class="top">
   <div class="bar">
-    <div class="brand">Road Watch<small>South Bengaluru</small></div>
+    <div class="brand">Road Watch<small>Bengaluru · all 369 wards</small></div>
     <input id="q" placeholder="Search a road or ward" autocomplete="off" aria-label="Search a road or ward">
     <button id="near" title="Find the road you're on">📍 Near me</button>
   </div>
@@ -63,78 +63,105 @@ button,.btn{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:1
 <div class="legend"><div id="zoomhint" style="font-weight:600;margin-bottom:4px">Zoom in to tap side roads</div><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#2563eb;opacity:.35"></i>No reports yet · tap any road</div></div>
 <aside class="sheet" id="sheet" aria-live="polite"></aside>
 <div class="toast" id="toast"></div>
-<div class="loading" id="loading">Loading South Bengaluru roads…</div>
+<div class="loading" id="loading">Loading Bengaluru roads…</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const REPO = "tones9/Bengaluru-road-watch";
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const toast = m => { const t = $("#toast"); t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2200); };
+const toast = m => { const t = $("#toast"); t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); };
 
-const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([12.905, 77.6], 13);
+const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([12.97, 77.59], 12);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Wards: GBA 2025 via OpenCity'
 }).addTo(map);
+const renderer = L.canvas({ tolerance: 6 });
 const MAJOR = new Set(["motorway","trunk","primary","secondary","tertiary"]);
-const MINOR_ZOOM = 16;
-const majorGroup = L.layerGroup().addTo(map), minorGroup = L.layerGroup();
-function syncMinor() { const on = map.getZoom() >= MINOR_ZOOM; if (on && !map.hasLayer(minorGroup)) minorGroup.addTo(map); if (!on && map.hasLayer(minorGroup)) map.removeLayer(minorGroup); const h = document.querySelector("#zoomhint"); if (h) h.style.display = on ? "none" : "block"; }
-map.on("zoomend", syncMinor);
-const renderer = L.canvas({ tolerance: 8 });
+const MINOR_ZOOM = 15;
+const majorGroup = L.layerGroup().addTo(map), minorGroup = L.layerGroup(), reportGroup = L.layerGroup().addTo(map);
 
-let OFF, WARDS = {}, ROADS = [], REPORTS = {}, byId = {}, selected = null, wardLayer;
+let OFF, WARDS = {}, REPORTS = {}, byId = {}, lines = {}, wardLayer, GRID, NAMES = [];
+const loadedCells = {};
 
-const CLASS = {
-  motorway:"Highway", trunk:"Highway", primary:"Arterial road", secondary:"Sub-arterial road", tertiary:"Main ward road",
-  residential:"Ward / residential road", unclassified:"Ward road", living_street:"Residential lane"
-};
+const CLASS = { motorway:"Highway", trunk:"Highway", primary:"Arterial road", secondary:"Sub-arterial road", tertiary:"Main ward road", residential:"Ward / residential road", unclassified:"Ward road", living_street:"Residential lane" };
 const cls = h => CLASS[h.replace("_link","")] || "Road";
 const WEIGHT = { motorway:6, trunk:6, primary:5, secondary:4.5, tertiary:3.5 };
+const corpOf = w => OFF.corporations[w.corporation] || { name: "GBA city corporation", commissioner: "" };
 
-function owner(r) {
-  const [, name, hw, ref] = r; const n = (name + " " + ref);
-  if (/\bNICE\b/i.test(n)) return { v: "NICE Ltd (private toll road)", d: "The NICE Road / Peripheral Road is run by Nandi Infrastructure Corridor Enterprises under a concession, not by the corporation.", tag: "likely" };
-  if (/\bNH\s?\d+/i.test(ref)) return { v: "National highway (NHAI)", d: `Tagged ${esc(ref)} in OpenStreetMap. National highway stretches, including flyovers and elevated sections, are usually NHAI's. Some city stretches are handed to the corporation, so confirm with both.`, tag: "likely" };
-  if (/\bSH\s?\d+/i.test(ref)) return { v: "State highway: PWD or South City Corporation", d: `Tagged ${esc(ref)}. Inside city limits, state highways are often maintained by the corporation. Confirm before escalating.`, tag: "likely" };
-  const h = hw.replace("_link","");
-  if (["motorway","trunk","primary","secondary"].includes(h)) return { v: "South City Corporation: arterial & sub-arterial roads", d: "Arterial and sub-arterial roads (about 1,682 km city-wide) are maintained through corporation contracts, overseen by the corporation's chief engineer. The road's class here comes from OpenStreetMap, not an official register.", tag: "likely" };
-  return { v: "South City Corporation: ward roads", d: "Ward and internal roads are handled by the corporation's engineers for this division and sub-division (below).", tag: "likely" };
+function owner(r, corp) {
+  const [, name, hw, ref] = r; const n = name + " " + ref;
+  if (/\bNICE\b/i.test(n)) return { v: "NICE Ltd (private toll road)", d: "The NICE Road / Peripheral Road is run by Nandi Infrastructure Corridor Enterprises under a concession, not by the corporation." };
+  if (/\bNH\s?\d+/i.test(ref)) return { v: "National highway (NHAI)", d: `Tagged ${esc(ref)} in OpenStreetMap. National highway stretches, including flyovers and elevated sections, are usually NHAI's. Some city stretches are handed to the corporation, so confirm with both.` };
+  if (/\bSH\s?\d+/i.test(ref)) return { v: `State highway: PWD or ${esc(corp)}`, d: `Tagged ${esc(ref)}. Inside city limits, state highways are often maintained by the corporation. Confirm before escalating.` };
+  if (MAJOR.has(hw.replace("_link",""))) return { v: `${esc(corp)}: arterial & sub-arterial roads`, d: "Arterial and sub-arterial roads (about 1,682 km city-wide) are maintained through corporation contracts, overseen by the corporation's chief engineer. The road's class here comes from OpenStreetMap, not an official register." };
+  return { v: `${esc(corp)}: ward roads`, d: "Ward and internal roads are handled by the corporation's engineers for this division and sub-division (below)." };
 }
 
-function lenKm(f) { let s = 0; for (let i = 2; i < f.length; i += 2) { const dx = (f[i]-f[i-2]) * 108.7, dy = (f[i+1]-f[i-1]) * 111.2; s += Math.hypot(dx, dy); } return s; }
+function lenKm(f) { let s = 0; for (let i = 2; i < f.length; i += 2) s += Math.hypot((f[i]-f[i-2]) * 108.7, (f[i+1]-f[i-1]) * 111.2); return s; }
 function status(id) {
   const it = (REPORTS[id] || []).filter(x => x.kind === "report");
-  if (!it.length) return { c: "grey", t: "No public reports yet", it };
+  if (!it.length) return { c: "grey", t: "No public reports yet" };
   const open = it.filter(x => x.state === "open").length;
-  return open ? { c: "red", t: `${open} open report${open > 1 ? "s" : ""}`, it } : { c: "green", t: "Reported fixed", it };
+  return open ? { c: "red", t: `${open} open report${open > 1 ? "s" : ""}` } : { c: "green", t: "Reported fixed" };
 }
-const color = id => ({ red: "#d92d20", green: "#16803c", grey: "#8a94a6" })[status(id).c];
+const daysTo = d => Math.ceil((new Date(d + "T23:59:59+05:30") - new Date()) / 864e5);
+const mid = f => { const k = Math.floor(f.length / 4) * 2; return [f[k+1], f[k]]; };
+const latlngs = f => { const ll = []; for (let i = 0; i < f.length; i += 2) ll.push([f[i+1], f[i]]); return ll; };
 
-function daysTo(d) { return Math.ceil((new Date(d + "T23:59:59+05:30") - new Date()) / 864e5); }
+function addRoad(r, group) {
+  if (byId[r[0]]) return; byId[r[0]] = r;
+  if (REPORTS[r[0]]) return; // drawn in reportGroup
+  const major = MAJOR.has(r[2].replace("_link",""));
+  lines[r[0]] = L.polyline(latlngs(r[5]), { renderer, interactive: false, color: "#2563eb", weight: major ? 5 : 4, opacity: major ? .18 : .12 }).addTo(group);
+}
+function drawReported(geom) {
+  for (const [id, r] of Object.entries(geom || {})) {
+    byId[r[0]] = r; const st = status(id).c;
+    lines[r[0]] = L.polyline(latlngs(r[5]), { renderer, interactive: false, color: st === "green" ? "#16803c" : "#d92d20", weight: (WEIGHT[r[2].replace("_link","")] || 3) + 2, opacity: .9 }).addTo(reportGroup);
+  }
+}
+function cellsInView() {
+  const b = map.getBounds(), [S, W] = GRID.origin, c = GRID.cell, out = [];
+  for (let i = Math.floor((b.getSouth() - S) / c); i <= Math.floor((b.getNorth() - S) / c); i++)
+    for (let j = Math.floor((b.getWest() - W) / c); j <= Math.floor((b.getEast() - W) / c); j++) if (i >= 0 && j >= 0) out.push(i + "_" + j);
+  return out;
+}
+function loadCell(c) {
+  if (!loadedCells[c]) loadedCells[c] = fetch(`data/roads/c_${c}.json`).then(r => r.ok ? r.json() : []).then(rs => { for (const r of rs) addRoad(r, minorGroup); }).catch(() => {});
+  return loadedCells[c];
+}
+async function syncMinor() {
+  const on = map.getZoom() >= MINOR_ZOOM;
+  if (on && !map.hasLayer(minorGroup)) minorGroup.addTo(map);
+  if (!on && map.hasLayer(minorGroup)) map.removeLayer(minorGroup);
+  $("#zoomhint").style.display = on ? "none" : "block";
+  if (on && GRID) await Promise.all(cellsInView().map(loadCell));
+}
+map.on("moveend", syncMinor);
 
 function card(id) {
   const r = byId[id]; if (!r) return;
-  const [osm, name, hw, ref, wn, flat] = r; const w = WARDS[wn] || {};
-  const mla = OFF.mlas[String(w.assembly_no)] || null;
-  const o = owner(r), st = status(id);
+  const [osm, name, hw, ref, key, flat, cell] = r; const w = WARDS[key] || {}; const corp = corpOf(w);
+  const mla = OFF.mlas[String(w.assembly_no)];
+  const o = owner(r, corp.name), st = status(id);
   const nm = name || `Unnamed ${cls(hw).toLowerCase()}`;
   const items = REPORTS[id] || [];
   const reps = items.filter(x => x.kind === "report"), proms = items.filter(x => x.kind === "promise");
-  const mid = [flat[Math.floor(flat.length/4)*2+1], flat[Math.floor(flat.length/4)*2]];
-  const days = daysTo(OFF.corporators.election_deadline);
-  location.hash = "road-" + id;
+  const m = mid(flat), days = daysTo(OFF.corporators.election_deadline);
+  history.replaceState(null, "", "#road-" + id + "-c" + cell);
+  const wardTxt = `Ward ${w.ward_no} ${esc(w.ward_name || "")}`;
 
   $("#sheet").innerHTML = `
-  <div class="sh"><div><h2>${esc(nm)}</h2><div class="sub">${cls(hw)}${ref ? " · " + esc(ref) : ""} · ${lenKm(flat).toFixed(2)} km segment · Ward ${wn} ${esc(w.ward_name || "")}</div>
+  <div class="sh"><div><h2>${esc(nm)}</h2><div class="sub">${cls(hw)}${ref ? " · " + esc(ref) : ""} · ${lenKm(flat).toFixed(2)} km segment · ${wardTxt} · ${esc(w.corporation)}</div>
   <div style="margin-top:7px"><span class="status s-${st.c}">${st.t}</span></div></div><button class="x" onclick="closeSheet()" aria-label="Close">✕</button></div>
 
   <div class="sec"><h3>Who is responsible for fixing it</h3><ol class="chain">
     <li><span class="n">1</span><div><div class="r">Who maintains the road <span class="tag t-likely">LIKELY</span></div><div class="v">${o.v}</div><div class="d">${o.d}</div></div></li>
-    <li><span class="n">2</span><div><div class="r">Engineers' office for this ward <span class="tag t-ok">OFFICIAL MAP</span></div><div class="v">${esc((w.subdivision||"").replace("ARO- ","Sub-division: "))}</div><div class="d">${esc((w.division||"").replace("RO- ","Division: "))} · Zone: ${esc(w.zone_name||"")} · Ward ${wn} ${esc(w.ward_name||"")} (${esc(w.ward_name_kn||"")}), population ${(w.population||0).toLocaleString("en-IN")}</div></div></li>
-    <li><span class="n">3</span><div><div class="r">Head of the corporation <span class="tag t-ok">VERIFIED</span></div><div class="v">${esc(OFF.corporation.commissioner)}</div><div class="d">Commissioner, ${esc(OFF.corporation.name)}, since ${esc(OFF.corporation.commissioner_since)}. GBA Chief Commissioner: ${esc(OFF.gba.chief_commissioner)}.</div></div></li>
+    <li><span class="n">2</span><div><div class="r">Engineers' office for this ward <span class="tag t-ok">OFFICIAL MAP</span></div><div class="v">${esc((w.subdivision||"").replace("ARO- ","Sub-division: "))}</div><div class="d">${esc((w.division||"").replace("RO- ","Division: "))} · Zone: ${esc(w.zone_name||"")} · ${wardTxt} (${esc(w.ward_name_kn||"")}), population ${(w.population||0).toLocaleString("en-IN")}</div></div></li>
+    <li><span class="n">3</span><div><div class="r">Head of the corporation <span class="tag t-ok">VERIFIED</span></div><div class="v">${esc(corp.commissioner)}</div><div class="d">Commissioner, ${esc(corp.name)}. GBA Chief Commissioner: ${esc(OFF.gba.chief_commissioner)}.</div></div></li>
     <li><span class="n">4</span><div><div class="r">Ward corporator (elected) <span class="tag t-none">NONE</span></div><div class="v">No elected corporator</div><div class="d">${esc(OFF.corporators.detail)} ${days > 0 ? `<b>Election deadline in ${days} days</b> (31 Dec 2026; the election commission has asked for 31 Jan 2027).` : esc(OFF.corporators.election)}</div></div></li>
     <li><span class="n">5</span><div><div class="r">MLA for this area <span class="tag t-ok">VERIFIED</span></div><div class="v">${mla ? esc(mla.name) + " · " + esc(mla.party) : "Not found"}</div><div class="d">${mla ? esc(mla.constituency) + " constituency (no. " + w.assembly_no + "), elected " + mla.elected + ". MLAs don't repair roads themselves, but they control local development funds and can push the corporation." : ""}</div></div></li>
     <li><span class="n">6</span><div><div class="r">If the road was dug up</div><div class="v">The agency that dug it must restore it</div><div class="d">Water (BWSSB), power (BESCOM), gas and telecom need road-cutting permission and must restore the surface. The corporation's engineers should inspect it before signing off.</div></div></li>
@@ -147,7 +174,7 @@ function card(id) {
     <a class="btn ghost" target="_blank" rel="noopener" href="${issueUrl("promise.yml", id, nm)}">Record a promise</a>
   </div>
   <p class="muted" style="margin:10px 0 0">File it officially: call <b>${esc(OFF.complaint_channels[0].value)}</b>, ${esc(OFF.complaint_channels[1].value)}, or use the Namma Bengaluru (Sahaaya) app. Then add the complaint number to your public report so its progress can be tracked. Public reports need a free GitHub account.</p>
-  <p class="muted" style="margin:8px 0 0">Share this road: <a href="https://wa.me/?text=${encodeURIComponent(nm + " (Ward " + wn + ") is broken. See who's responsible: " + shareUrl(id))}" target="_blank" rel="noopener" style="color:var(--blue)">WhatsApp</a> · <a href="https://www.google.com/maps?q=${mid[0]},${mid[1]}" target="_blank" rel="noopener" style="color:var(--blue)">Open in Google Maps</a></p>
+  <p class="muted" style="margin:8px 0 0">Share this road: <a href="https://wa.me/?text=${encodeURIComponent(nm + " (Ward " + w.ward_no + " " + (w.ward_name||"") + ") is broken. See who's responsible: " + shareUrl(id))}" target="_blank" rel="noopener" style="color:var(--blue)">WhatsApp</a> · <a href="https://www.google.com/maps?q=${m[0]},${m[1]}" target="_blank" rel="noopener" style="color:var(--blue)">Open in Google Maps</a></p>
   </div>
 
   <div class="sec"><h3>Resident reports (${reps.length})</h3>${reps.length ? reps.map(x => `<div class="item"><b>${esc(x.problem || "Report")}</b> · ${x.state === "fixed" ? '<span class="status s-green">fixed</span>' : x.state === "open" ? '<span class="status s-red">open</span>' : '<span class="status s-grey">closed</span>'}<br>Reported ${esc(x.created)}${x.since ? " · broken since " + esc(x.since) : ""}${x.complaint ? " · complaint no. " + esc(x.complaint) : ""}<br>${x.details ? esc(x.details) + "<br>" : ""}<a href="${esc(x.url)}" target="_blank" rel="noopener">See photos &amp; updates</a></div>`).join("") : `<p class="muted">No one has reported this stretch yet. A dated photo is the strongest evidence. Note that "first reported here" isn't the same as "broken since".</p>`}</div>
@@ -155,7 +182,7 @@ function card(id) {
   <div class="sec"><h3>Promises (${proms.length})</h3>${proms.length ? proms.map(x => `<div class="item"><b>${esc(x.who)}</b> <span class="muted">(${esc(x.role)})</span><br>“${esc(x.promise)}”${x.deadline ? "<br>Deadline: <b>" + esc(x.deadline) + "</b>" : ""}<br>${x.verified ? '<span class="tag t-ok">SOURCE CHECKED</span> ' : '<span class="tag t-likely">UNCHECKED</span> '}<a href="${esc(x.url)}" target="_blank" rel="noopener">Source &amp; status</a></div>`).join("") : `<p class="muted">No promises recorded for this road. With the corporation election coming, ask candidates to commit to this stretch with a date, then record it here with a source.</p>`}</div>
 
   <div class="sec src"><h3>Sources</h3>
-    ${[OFF.wards_source, ...OFF.corporation.sources, ...OFF.mla_sources, ...OFF.corporators.sources, ...OFF.gba.sources].map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join("")}
+    ${[OFF.wards_source, ...OFF.corporation_sources, ...OFF.mla_sources, ...OFF.corporators.sources, ...OFF.gba.sources].map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join("")}
     <a href="https://www.openstreetmap.org/way/${osm}" target="_blank" rel="noopener">This road in OpenStreetMap (way ${osm})</a>
     <span class="muted" style="font-size:12px">Officials checked ${esc(OFF.checked)}. "Likely" = worked out from road type; not yet confirmed by an official road register.</span>
   </div>`;
@@ -165,18 +192,17 @@ function card(id) {
 window.closeSheet = () => { $("#sheet").classList.remove("open"); highlight(null); history.replaceState(null, "", location.pathname); };
 
 function issueUrl(t, id, nm) { return `https://github.com/${REPO}/issues/new?template=${t}&road_id=${id}&road_name=${encodeURIComponent(nm)}&title=${encodeURIComponent((t === "report.yml" ? "[Road] " : "[Promise] ") + nm)}`; }
-const shareUrl = id => location.origin + location.pathname + "#road-" + id;
+const shareUrl = id => location.origin + location.pathname + "#road-" + id + "-c" + byId[id][6];
 
 function complaintText(id) {
-  const [ , name, hw, , wn, flat] = byId[id]; const w = WARDS[wn]; const nm = name || "Unnamed road";
-  const lat = flat[Math.floor(flat.length/4)*2+1], lng = flat[Math.floor(flat.length/4)*2];
-  return `To: The Assistant Executive Engineer, ${w.subdivision.replace("ARO- ", "")} sub-division, ${w.division.replace("RO- ", "")} division, Bengaluru South City Corporation
-Cc: Commissioner, Bengaluru South City Corporation (${OFF.corporation.commissioner})
+  const [, name, hw, , key, flat] = byId[id]; const w = WARDS[key]; const corp = corpOf(w); const nm = name || "Unnamed road"; const m = mid(flat);
+  return `To: The Assistant Executive Engineer, ${w.subdivision.replace("ARO- ", "")} sub-division, ${w.division.replace("RO- ", "")} division, ${corp.name}
+Cc: Commissioner, ${corp.name} (${corp.commissioner})
 
-Subject: Damaged road – ${nm}, Ward ${wn} ${w.ward_name}
+Subject: Damaged road – ${nm}, Ward ${w.ward_no} ${w.ward_name}
 
-The road "${nm}" (${cls(hw)}) in Ward ${wn} ${w.ward_name} is badly damaged and unsafe for commuters.
-Location: https://www.google.com/maps?q=${lat},${lng}
+The road "${nm}" (${cls(hw)}) in Ward ${w.ward_no} ${w.ward_name} is badly damaged and unsafe for commuters.
+Location: https://www.google.com/maps?q=${m[0]},${m[1]}
 
 Please:
 1. Repair this stretch and share the expected completion date.
@@ -189,8 +215,8 @@ Name:
 Phone:`;
 }
 function pledgeText(id) {
-  const [ , name, , , wn] = byId[id]; const w = WARDS[wn]; const nm = name || "the road";
-  return `To every candidate for Ward ${wn} ${w.ward_name} (GBA corporation election):
+  const [, name, , , key] = byId[id]; const w = WARDS[key]; const nm = name || "the road";
+  return `To every candidate for Ward ${w.ward_no} ${w.ward_name}, ${corpOf(w).name} (GBA election):
 
 Residents want a written commitment, with a date, to fix ${nm}. It has been broken for a long time.
 
@@ -201,33 +227,29 @@ Please reply with:
 
 Your answer will be recorded publicly on Road Watch: ${shareUrl(id)}`;
 }
-async function copy(t, m) { try { await navigator.clipboard.writeText(t); toast(m); } catch { prompt("Copy this text:", t); } }
+async function copy(t, m) { try { await navigator.clipboard.writeText(t); toast(m); } catch { window.prompt("Copy this text:", t); } }
 window.copyComplaint = id => copy(complaintText(id), "Complaint copied. Paste it into email or the Sahaaya app");
 window.copyPledge = id => copy(pledgeText(id), "Pledge copied. Send it to candidates");
 
-let lines = {}, hl;
+let hl;
 function highlight(id) {
   if (hl) { map.removeLayer(hl); hl = null; }
   if (id == null) return;
-  const f = byId[id][5]; const ll = []; for (let i = 0; i < f.length; i += 2) ll.push([f[i+1], f[i]]);
-  hl = L.polyline(ll, { renderer, color: "#1d4ed8", weight: 9, opacity: .85 }).addTo(map);
+  hl = L.polyline(latlngs(byId[id][5]), { renderer, interactive: false, color: "#1d4ed8", weight: 9, opacity: .85 }).addTo(map);
 }
-function drawRoads() {
-  for (const r of ROADS) {
-    const f = r[5], ll = []; for (let i = 0; i < f.length; i += 2) ll.push([f[i+1], f[i]]);
-    const h = r[2].replace("_link",""), st = status(r[0]).c, major = MAJOR.has(h);
-    const pl = st === "grey"
-      ? L.polyline(ll, { renderer, interactive: false, color: "#2563eb", weight: major ? 5 : 4, opacity: major ? 0.18 : 0.12 })
-      : L.polyline(ll, { renderer, interactive: false, color: color(r[0]), weight: (WEIGHT[h] || 3) + 2, opacity: .9 });
-    pl.addTo(major || st !== "grey" ? majorGroup : minorGroup); lines[r[0]] = pl;
-  }
-  syncMinor();
+async function focusRoad(id, cell) {
+  if (!byId[id] && cell) await loadCell(cell);
+  if (!byId[id]) return false;
+  const b = L.latLngBounds(latlngs(byId[id][5]));
+  map.fitBounds(b, { maxZoom: 17, animate: false }); if (map.getZoom() < MINOR_ZOOM + 1) map.setView(b.getCenter(), MINOR_ZOOM + 1, { animate: false });
+  await syncMinor(); card(id); return true;
 }
-function focusRoad(id) { const b = lines[id].getBounds(); map.fitBounds(b, { maxZoom: 17 }); if (map.getZoom() < MINOR_ZOOM) map.setView(b.getCenter(), MINOR_ZOOM); }
 
 function nearest(lat, lng) {
   let best = null, bd = 1e9; const kx = Math.cos(lat * Math.PI / 180);
-  for (const r of ROADS) { const f = r[5];
+  for (const r of Object.values(byId)) {
+    if (!MAJOR.has(r[2].replace("_link","")) && !REPORTS[r[0]] && map.getZoom() < MINOR_ZOOM) continue;
+    const f = r[5];
     for (let i = 2; i < f.length; i += 2) {
       const ax = (f[i-2]-lng)*kx, ay = f[i-1]-lat, bx = (f[i]-lng)*kx, by = f[i+1]-lat;
       const dx = bx-ax, dy = by-ay, L2 = dx*dx+dy*dy; let t = L2 ? -(ax*dx+ay*dy)/L2 : 0; t = Math.max(0, Math.min(1, t));
@@ -235,66 +257,70 @@ function nearest(lat, lng) {
     } }
   return { r: best, m: Math.sqrt(bd) * 111200 };
 }
+const inCity = ll => wardLayer && wardLayer.getBounds().contains(ll);
+
+// Tap anywhere: pick the nearest road within ~30 px. Zoomed out, side roads load first.
+map.on("click", async e => {
+  $("#results").style.display = "none";
+  const ll = e.latlng, pxM = () => 156543.03 * Math.cos(ll.lat * Math.PI / 180) / Math.pow(2, map.getZoom());
+  let n = nearest(ll.lat, ll.lng);
+  if (n.r && n.m <= Math.max((map.getZoom() < MINOR_ZOOM ? 10 : 30) * pxM(), 15)) return card(n.r[0]);
+  if (!inCity(ll)) return toast("Outside GBA city limits");
+  if (map.getZoom() < MINOR_ZOOM) { map.setView(ll, MINOR_ZOOM + 1, { animate: false }); await syncMinor(); n = nearest(ll.lat, ll.lng); if (n.r && n.m <= 40) return card(n.r[0]); return toast("Zoomed in. Now tap the road"); }
+  toast("No mapped road here. Tap closer to a road");
+});
+
 let me;
 $("#near").onclick = () => {
   if (!navigator.geolocation) return toast("Location isn't available on this device");
   toast("Finding you…");
-  navigator.geolocation.getCurrentPosition(p => {
-    const { latitude: la, longitude: lo } = p.coords;
-    if (me) map.removeLayer(me); me = L.circleMarker([la, lo], { radius: 8, color: "#fff", weight: 3, fillColor: "#1d4ed8", fillOpacity: 1 }).addTo(map);
-    const n = nearest(la, lo);
-    if (!n.r || n.m > 300) { map.fitBounds(wardLayer.getBounds().extend([la, lo])); return toast("You're outside the pilot area (South City Corporation). Search a road instead"); }
-    map.setView([la, lo], 17); card(n.r[0]);
+  navigator.geolocation.getCurrentPosition(async p => {
+    const ll = L.latLng(p.coords.latitude, p.coords.longitude);
+    if (me) map.removeLayer(me); me = L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#1d4ed8", fillOpacity: 1 }).addTo(map);
+    if (!inCity(ll)) { map.setView(ll, 13); return toast("You're outside GBA city limits"); }
+    map.setView(ll, 17, { animate: false }); await syncMinor();
+    const n = nearest(ll.lat, ll.lng);
+    if (n.r && n.m <= 80) card(n.r[0]); else toast("No mapped road right here. Tap the road you're on");
   }, () => toast("Location permission denied. Search instead"), { enableHighAccuracy: true, timeout: 10000 });
 };
 
 let index = [];
-function buildIndex() {
-  const seen = {};
-  for (const r of ROADS) { if (!r[1]) continue; const k = r[1] + "|" + r[4]; if (seen[k]) continue; seen[k] = 1; index.push({ t: r[1], s: `Ward ${r[4]} ${WARDS[r[4]]?.ward_name || ""}`, id: r[0] }); }
-  for (const [n, w] of Object.entries(WARDS)) index.push({ t: w.ward_name + " (ward)", s: `Ward ${n} · ${w.assembly_constituency}`, ward: +n });
-}
 $("#q").oninput = e => {
   const q = e.target.value.trim().toLowerCase(), box = $("#results");
   if (q.length < 2) { box.style.display = "none"; return; }
-  const m = index.filter(x => x.t.toLowerCase().includes(q)).slice(0, 12);
-  box.innerHTML = m.length ? m.map((x, i) => `<div data-i="${i}">${esc(x.t)}<br><small>${esc(x.s)}</small></div>`).join("") : `<div><small>No match in the South Bengaluru pilot</small></div>`;
+  const m = index.filter(x => x.l.includes(q)).sort((a, b) => a.l.indexOf(q) - b.l.indexOf(q)).slice(0, 15);
+  box.innerHTML = m.length ? m.map((x, i) => `<div data-i="${i}">${esc(x.t)}<br><small>${esc(x.s)}</small></div>`).join("") : `<div><small>No match. Try another spelling</small></div>`;
   box.style.display = "block";
-  box.querySelectorAll("[data-i]").forEach(d => d.onclick = () => {
-    const x = m[+d.dataset.i]; box.style.display = "none"; $("#q").value = x.t;
-    if (x.id) { focusRoad(x.id); card(x.id); }
-    else wardLayer.eachLayer(l => { if (l.feature.properties.ward_no === x.ward) map.fitBounds(l.getBounds()); });
+  box.querySelectorAll("[data-i]").forEach(d => d.onclick = async () => {
+    const x = m[+d.dataset.i]; box.style.display = "none"; $("#q").value = x.t.replace(" (ward)", "");
+    if (x.id) { if (!(await focusRoad(x.id, x.cell))) { map.setView([x.lat, x.lng], 17); toast("Tap the road to open it"); } }
+    else wardLayer.eachLayer(l => { if (l.feature.properties.key === x.ward) map.fitBounds(l.getBounds()); });
   });
 };
+const wardLabel = w => `Ward ${w.ward_no} ${w.ward_name} · ${w.corporation}`;
 
 (async () => {
   try {
-    const [w, rd, off, rep] = await Promise.all(["data/wards-south.geojson", "data/roads.json", "data/officials.json", "data/reports.json"].map(u => fetch(u, { cache: "no-cache" }).then(r => r.ok ? r.json() : null)));
+    const get = u => fetch(u, { cache: "no-cache" }).then(r => r.ok ? r.json() : null);
+    const [w, major, off, rep] = await Promise.all(["data/wards.geojson", "data/roads/major.json", "data/officials.json", "data/reports.json"].map(get));
     OFF = off; REPORTS = rep?.roads || {};
-    for (const f of w.features) WARDS[f.properties.ward_no] = f.properties;
-    wardLayer = L.geoJSON(w, { renderer, interactive: false, style: { color: "#334155", weight: 1.2, opacity: .45, dashArray: "4 4", fill: true, fillOpacity: .02 } }).addTo(map);
-    map.fitBounds(wardLayer.getBounds());
-    ROADS = rd?.roads || []; for (const r of ROADS) byId[r[0]] = r;
-    drawRoads(); buildIndex();
+    for (const f of w.features) WARDS[f.properties.key] = f.properties;
+    wardLayer = L.geoJSON(w, { renderer, interactive: false, style: { color: "#334155", weight: 1.1, opacity: .4, dashArray: "4 4", fill: false } }).addTo(map);
+    map.fitBounds(wardLayer.getBounds(), { animate: false });
+    drawReported(rep?.geom);
+    if (major) { GRID = major; for (const r of major.roads) addRoad(r, majorGroup); }
+    for (const [k, wd] of Object.entries(WARDS)) index.push({ t: wd.ward_name + " (ward)", l: wd.ward_name.toLowerCase(), s: `Ward ${wd.ward_no} · ${wd.corporation} · ${wd.assembly_constituency}`, ward: k });
     const days = daysTo(OFF.corporators.election_deadline);
     const nRep = Object.values(REPORTS).flat().filter(x => x.kind === "report").length;
-    $("#banner").innerHTML = `<b>No elected corporators since 2020.</b> GBA election deadline: ${days > 0 ? days + " days" : "passed"}. Tap a road to see who's accountable${nRep ? ` · ${nRep} resident reports so far` : ""}.`;
-    if (!ROADS.length) $("#banner").innerHTML += "<br>Road data is still being downloaded; check back in a few minutes.";
-    const h = location.hash.match(/^#road-(\d+)$/); if (h && byId[h[1]]) { focusRoad(h[1]); card(h[1]); }
+    $("#banner").innerHTML = `<b>No elected corporators since 2020.</b> GBA election deadline: ${days > 0 ? days + " days" : "passed"}. Tap any road to see who's accountable${nRep ? ` · ${nRep} resident reports so far` : ""}.`;
+    if (!major) $("#banner").innerHTML += "<br>Road data is still being downloaded; check back in a few minutes.";
+    const openHash = async () => { const h = location.hash.match(/^#road-(\d+)(?:-c(\d+_\d+))?$/); if (h) await focusRoad(+h[1], h[2]); };
+    window.addEventListener("hashchange", openHash); await openHash();
+    syncMinor();
+    get("data/roads/names.json").then(ns => { for (const n of ns || []) index.push({ t: n[0], l: n[0].toLowerCase(), s: wardLabel(WARDS[n[3]] || {}), id: n[1], cell: n[2], lat: n[4], lng: n[5] }); });
   } catch (e) { console.error(e); toast("Couldn't load data"); }
   $("#loading").remove();
 })();
-// Tap anywhere: pick the nearest road within ~30 px, at any zoom level
-map.on("click", e => {
-  $("#results").style.display = "none";
-  if (!ROADS.length) return;
-  const { lat, lng } = e.latlng;
-  const mPerPx = 156543.03 * Math.cos(lat * Math.PI / 180) / Math.pow(2, map.getZoom());
-  const n = nearest(lat, lng);
-  if (n.r && n.m <= Math.max(30 * mPerPx, 15)) { if (map.getZoom() < MINOR_ZOOM && !MAJOR.has(n.r[2].replace("_link",""))) focusRoad(n.r[0]); card(n.r[0]); }
-  else if (!wardLayer.getBounds().contains(e.latlng)) toast("Outside the pilot area (South City Corporation)");
-  else toast(map.getZoom() < MINOR_ZOOM ? "Zoom in and tap the road" : "No mapped road here. Tap closer to a road");
-});
 </script>
 </body>
 </html>

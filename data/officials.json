@@ -1,53 +1,265 @@
 {
-  "checked": "2026-11-22",
-  "corporation": {
-    "name": "Bengaluru South City Corporation",
-    "name_kn": "ಬೆಂಗಳೂರು ದಕ್ಷಿಣ ನಗರ ಪಾಲಿಕೆ",
-    "commissioner": "K N Ramesh, IAS",
-    "commissioner_since": "3 Sep 2025",
-    "sources": [
-      {"title": "IAS reshuffle: GBA corporation commissioners named", "url": "https://indianmasterminds.com/news/karnataka-ias-reshuffle-gba-commissioners-142051/"},
-      {"title": "South Corporation maiden budget presented by Commissioner K N Ramesh (Mar 2026)", "url": "https://theprint.in/india/bengaluru-south-corporation-presents-rs-3825-95-crore-maiden-budget/2891149"}
-    ]
+ "checked": "2026-11-22",
+ "gba": {
+  "name": "Greater Bengaluru Authority",
+  "chief_commissioner": "M Maheshwar Rao",
+  "sources": [
+   {
+    "title": "GBA chief directs contractors for road and drain upkeep",
+    "url": "https://www.deccanherald.com/india/karnataka/bengaluru/appoint-new-contractors-for-road-drain-upkeep-gba-chief-3720240"
+   }
+  ]
+ },
+ "corporators": {
+  "status": "No elected corporator",
+  "detail": "Bengaluru has had no elected council since the BBMP's term ended in September 2020. Your ward's corporator will be elected in the first GBA corporation election.",
+  "election": "Supreme Court deadline: 31 Dec 2026. The State Election Commission has asked for time until 31 Jan 2027.",
+  "election_deadline": "2026-12-31",
+  "sources": [
+   {
+    "title": "SC extends GBA poll deadline to 31 Dec 2026",
+    "url": "https://www.deccanherald.com/india/karnataka/bengaluru/supreme-court-extends-deadline-for-5-municipal-corporation-polls-in-bengaluru-till-december-end-4076999"
+   },
+   {
+    "title": "SEC seeks extension to 31 Jan 2027",
+    "url": "https://www.siasat.com/karnataka-sec-seeks-sc-nod-to-extend-gba-civic-polls-deadline-3576594/amp/"
+   }
+  ]
+ },
+ "mlas": {
+  "150": {
+   "constituency": "Yelahanka",
+   "name": "S R Vishwanath",
+   "party": "BJP",
+   "elected": 2023
   },
-  "gba": {
-    "name": "Greater Bengaluru Authority",
-    "chief_commissioner": "M Maheshwar Rao",
-    "sources": [
-      {"title": "GBA chief directs contractors for road and drain upkeep", "url": "https://www.deccanherald.com/india/karnataka/bengaluru/appoint-new-contractors-for-road-drain-upkeep-gba-chief-3720240"}
-    ]
+  "151": {
+   "constituency": "K R Puram",
+   "name": "Byrathi Basavaraju",
+   "party": "BJP",
+   "elected": 2023
   },
-  "corporators": {
-    "status": "No elected corporator",
-    "detail": "Bengaluru has had no elected council since the BBMP's term ended in September 2020. Your ward's corporator will be elected in the first GBA corporation election.",
-    "election": "Supreme Court deadline: 31 Dec 2026. The State Election Commission has asked for time until 31 Jan 2027.",
-    "election_deadline": "2026-12-31",
-    "sources": [
-      {"title": "SC extends GBA poll deadline to 31 Dec 2026", "url": "https://www.deccanherald.com/india/karnataka/bengaluru/supreme-court-extends-deadline-for-5-municipal-corporation-polls-in-bengaluru-till-december-end-4076999"},
-      {"title": "SEC seeks extension to 31 Jan 2027", "url": "https://www.siasat.com/karnataka-sec-seeks-sc-nod-to-extend-gba-civic-polls-deadline-3576594/amp/"}
-    ]
+  "152": {
+   "constituency": "Byatarayanapura",
+   "name": "Krishna Byre Gowda",
+   "party": "INC",
+   "elected": 2023
   },
-  "mlas": {
-    "171": {"constituency": "Padmanabhanagar", "name": "R Ashoka", "party": "BJP", "elected": 2023},
-    "172": {"constituency": "BTM Layout", "name": "Ramalinga Reddy", "party": "INC", "elected": 2023},
-    "173": {"constituency": "Jayanagar", "name": "C K Ramamurthy", "party": "BJP", "elected": 2023},
-    "175": {"constituency": "Bommanahalli", "name": "M Satish Reddy", "party": "BJP", "elected": 2023},
-    "176": {"constituency": "Bangalore South", "name": "M Krishnappa", "party": "BJP", "elected": 2023},
-    "177": {"constituency": "Anekal", "name": "B Shivanna", "party": "INC", "elected": 2023},
-    "174": {"constituency": "Mahadevapura", "name": "Manjula S (Limbavali)", "party": "BJP", "elected": 2023},
-    "153": {"constituency": "Yeshwanthapura", "name": "S T Somashekar", "party": "elected on BJP ticket", "elected": 2023}
+  "153": {
+   "constituency": "Yeshwanthapura",
+   "name": "S T Somashekar",
+   "party": "elected on BJP ticket",
+   "elected": 2023
   },
-  "mla_sources": [
-    {"title": "BPAC: 2023 Bengaluru MLA election result report", "url": "https://bpac.in/wp-content/uploads/2023/08/KA-2023-Bengaluru-MLA-election-result-report.pdf"},
-    {"title": "List of Bangalore City MLAs, 2023", "url": "https://bangalore.explocity.com/article/bangalore-city-mlas/"}
-  ],
-  "complaint_channels": [
-    {"name": "GBA helpline (24x7)", "value": "1533"},
-    {"name": "Control room", "value": "080-2266 0000"},
-    {"name": "Namma Bengaluru / Sahaaya 2.0 app", "value": "Register with photo + location; note the complaint number"}
-  ],
-  "complaint_sources": [
-    {"title": "How to report potholes in Bengaluru", "url": "https://www.godigit.com/resolutions/file-pothole-road-damage-complaints-in-bangalore-bbmp"}
-  ],
-  "wards_source": {"title": "GBA 369 wards, Dec 2025 delimitation (OpenCity, via kaun.city, MIT)", "url": "https://data.opencity.in/dataset/gba-wards-delimitation-2025"}
+  "154": {
+   "constituency": "Rajarajeshwari Nagar",
+   "name": "Munirathna",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "155": {
+   "constituency": "Dasarahalli",
+   "name": "S Muniraju",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "156": {
+   "constituency": "Mahalakshmi Layout",
+   "name": "K Gopalaiah",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "157": {
+   "constituency": "Malleshwaram",
+   "name": "C N Ashwath Narayan",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "158": {
+   "constituency": "Hebbal",
+   "name": "Byrathi Suresh",
+   "party": "INC",
+   "elected": 2023
+  },
+  "159": {
+   "constituency": "Pulakeshinagar",
+   "name": "A C Srinivasa",
+   "party": "INC",
+   "elected": 2023
+  },
+  "160": {
+   "constituency": "Sarvagnanagar",
+   "name": "K J George",
+   "party": "INC",
+   "elected": 2023
+  },
+  "161": {
+   "constituency": "C V Raman Nagar",
+   "name": "S Raghu",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "162": {
+   "constituency": "Shivajinagar",
+   "name": "Rizwan Arshad",
+   "party": "INC",
+   "elected": 2023
+  },
+  "163": {
+   "constituency": "Shantinagar",
+   "name": "N A Haris",
+   "party": "INC",
+   "elected": 2023
+  },
+  "164": {
+   "constituency": "Gandhinagar",
+   "name": "Dinesh Gundu Rao",
+   "party": "INC",
+   "elected": 2023
+  },
+  "165": {
+   "constituency": "Rajajinagar",
+   "name": "S Suresh Kumar",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "166": {
+   "constituency": "Govindraj Nagar",
+   "name": "Priya Krishna",
+   "party": "INC",
+   "elected": 2023
+  },
+  "167": {
+   "constituency": "Vijayanagar",
+   "name": "M Krishnappa",
+   "party": "INC",
+   "elected": 2023
+  },
+  "168": {
+   "constituency": "Chamrajpet",
+   "name": "B Z Zameer Ahmed Khan",
+   "party": "INC",
+   "elected": 2023
+  },
+  "169": {
+   "constituency": "Chickpet",
+   "name": "Uday B Garudachar",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "170": {
+   "constituency": "Basavanagudi",
+   "name": "Ravi Subramanya L A",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "171": {
+   "constituency": "Padmanabhanagar",
+   "name": "R Ashoka",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "172": {
+   "constituency": "BTM Layout",
+   "name": "Ramalinga Reddy",
+   "party": "INC",
+   "elected": 2023
+  },
+  "173": {
+   "constituency": "Jayanagar",
+   "name": "C K Ramamurthy",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "174": {
+   "constituency": "Mahadevapura",
+   "name": "Manjula S (Limbavali)",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "175": {
+   "constituency": "Bommanahalli",
+   "name": "M Satish Reddy",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "176": {
+   "constituency": "Bangalore South",
+   "name": "M Krishnappa",
+   "party": "BJP",
+   "elected": 2023
+  },
+  "177": {
+   "constituency": "Anekal",
+   "name": "B Shivanna",
+   "party": "INC",
+   "elected": 2023
+  }
+ },
+ "mla_sources": [
+  {
+   "title": "BPAC: 2023 Bengaluru MLA election result report",
+   "url": "https://bpac.in/wp-content/uploads/2023/08/KA-2023-Bengaluru-MLA-election-result-report.pdf"
+  },
+  {
+   "title": "List of Bangalore City MLAs, 2023",
+   "url": "https://bangalore.explocity.com/article/bangalore-city-mlas/"
+  }
+ ],
+ "complaint_channels": [
+  {
+   "name": "GBA helpline (24x7)",
+   "value": "1533"
+  },
+  {
+   "name": "Control room",
+   "value": "080-2266 0000"
+  },
+  {
+   "name": "Namma Bengaluru / Sahaaya 2.0 app",
+   "value": "Register with photo + location; note the complaint number"
+  }
+ ],
+ "complaint_sources": [
+  {
+   "title": "How to report potholes in Bengaluru",
+   "url": "https://www.godigit.com/resolutions/file-pothole-road-damage-complaints-in-bangalore-bbmp"
+  }
+ ],
+ "wards_source": {
+  "title": "GBA 369 wards, Dec 2025 delimitation (OpenCity, via kaun.city, MIT)",
+  "url": "https://data.opencity.in/dataset/gba-wards-delimitation-2025"
+ },
+ "corporations": {
+  "Central": {
+   "name": "Bengaluru Central City Corporation",
+   "commissioner": "Rajendra Cholan P, IAS"
+  },
+  "East": {
+   "name": "Bengaluru East City Corporation",
+   "commissioner": "Ramesh D S, IAS"
+  },
+  "North": {
+   "name": "Bengaluru North City Corporation",
+   "commissioner": "Pommala Sunil Kumar, IAS"
+  },
+  "South": {
+   "name": "Bengaluru South City Corporation",
+   "commissioner": "K N Ramesh, IAS"
+  },
+  "West": {
+   "name": "Bengaluru West City Corporation",
+   "commissioner": "Dr Rajendra K V, IAS"
+  }
+ },
+ "corporation_sources": [
+  {
+   "title": "IAS reshuffle: GBA corporation commissioners named",
+   "url": "https://indianmasterminds.com/news/karnataka-ias-reshuffle-gba-commissioners-142051/"
+  },
+  {
+   "title": "South Corporation maiden budget presented by Commissioner K N Ramesh (Mar 2026)",
+   "url": "https://theprint.in/india/bengaluru-south-corporation-presents-rs-3825-95-crore-maiden-budget/2891149"
+  }
+ ]
 }

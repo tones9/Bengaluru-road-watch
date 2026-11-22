@@ -61,7 +61,17 @@ def main():
             "details": (f.get("details", "") or "")[:400],
             "photos": photos[:3],
         })
-    json.dump({"generated": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()), "roads": by_road},
+    # Attach each reported road's geometry so the map can always draw it
+    geom, want = {}, set(by_road)
+    if want and os.path.isdir("data/roads"):
+        for fn in os.listdir("data/roads"):
+            if fn == "names.json":
+                continue
+            d = json.load(open(os.path.join("data/roads", fn)))
+            for rec in (d["roads"] if isinstance(d, dict) else d):
+                if str(rec[0]) in want:
+                    geom[str(rec[0])] = rec
+    json.dump({"generated": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()), "roads": by_road, "geom": geom},
               open("data/reports.json", "w"), separators=(",", ":"))
     print(f"{sum(len(v) for v in by_road.values())} items on {len(by_road)} roads")
 

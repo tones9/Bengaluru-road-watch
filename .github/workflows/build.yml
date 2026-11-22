@@ -27,7 +27,7 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install shapely
       - name: Roads from OpenStreetMap
-        if: ${{ inputs.refresh_roads || hashFiles('data/roads.json') == '' }}
+        if: ${{ inputs.refresh_roads || hashFiles('data/roads/major.json') == '' }}
         run: python scripts/build_roads.py
       - name: Reports and promises from issues
         env:
