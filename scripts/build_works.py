@@ -4,7 +4,8 @@ Runs in GitHub Actions. Writes data/works.json:
   {"generated", "tenders": [...], "construction": [...], "status": {...}}
 Each tender is matched to road segments by road name + ward found in its title (best effort, marked as such).
 """
-import json, os, re, sys, time, urllib.parse, urllib.request
+import json, os, re, sys, time, urllib.parse, urllib.request, functools
+print = functools.partial(print, flush=True)
 from datetime import datetime, timezone
 
 KPPP = "https://kppp.karnataka.gov.in/supplier-registration-service/v1/api/portal-service"
@@ -24,7 +25,7 @@ def req(url, body=None):
     data = json.dumps(body).encode() if body is not None else None
     r = urllib.request.Request(url, data=data, method="POST" if data else "GET",
                                headers={"User-Agent": UA, "Accept": "application/json", "Content-Type": "application/json"})
-    with urllib.request.urlopen(r, timeout=60) as resp:
+    with urllib.request.urlopen(r, timeout=25) as resp:
         return json.load(resp), dict(resp.headers)
 
 
@@ -43,6 +44,16 @@ def dt(s):
 
 def kppp_tenders(log):
     rows = {}
+    # Reachability check first: GitHub's servers may be blocked by the portal
+    try:
+        t0 = time.time()
+        data, _ = req(f"{KPPP}/works/search-eproc-tenders?page=0&size=5",
+                      {"category": "WORKS", "status": "AWARDED", "tenderType": "OPEN", "deptId": 12608})
+        print(f"KPPP reachable: {len(data)} rows in {time.time()-t0:.1f}s")
+    except Exception as e:
+        print(f"KPPP unreachable: {e!r}")
+        log.append(f"KPPP unreachable from runner: {e!r}")
+        return rows
     for dept, corp in DEPTS.items():
         for st in STATUSES:
             page = 0
@@ -53,6 +64,7 @@ def kppp_tenders(log):
                 except Exception as e:
                     log.append(f"search {corp} {st} p{page}: {e}")
                     break
+                print(f"{corp} {st} page {page}: {len(data)} rows")
                 if not data:
                     break
                 stop = False
@@ -85,7 +97,10 @@ def enrich(rows, log, limit=1200):
     """Award date + winning contractor for awarded/selected tenders (newest first)."""
     todo = sorted([r for r in rows.values() if r["status"] in ("AWARDED", "EVALUATION_COMPLETED")],
                   key=lambda r: r["published"] or "", reverse=True)[:limit]
-    for r in todo:
+    print(f"enriching {len(todo)} tenders")
+    for i, r in enumerate(todo):
+        if i % 100 == 0:
+            print(f"  {i}/{len(todo)}")
         try:
             full, _ = req(f"{KPPP}/{r['nit']}/works-tender-full-view")
             r["awarded"] = dt((full.get("tenderAwardDatesDTO") or {}).get("awardedDates"))
