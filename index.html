@@ -217,9 +217,8 @@ function drawRoads() {
     const f = r[5], ll = []; for (let i = 0; i < f.length; i += 2) ll.push([f[i+1], f[i]]);
     const h = r[2].replace("_link",""), st = status(r[0]).c, major = MAJOR.has(h);
     const pl = st === "grey"
-      ? L.polyline(ll, { renderer, color: "#2563eb", weight: major ? 5 : 4, opacity: major ? 0.18 : 0.12 })
-      : L.polyline(ll, { renderer, color: color(r[0]), weight: (WEIGHT[h] || 3) + 2, opacity: .9 });
-    pl.on("click", e => { L.DomEvent.stop(e); card(r[0]); });
+      ? L.polyline(ll, { renderer, interactive: false, color: "#2563eb", weight: major ? 5 : 4, opacity: major ? 0.18 : 0.12 })
+      : L.polyline(ll, { renderer, interactive: false, color: color(r[0]), weight: (WEIGHT[h] || 3) + 2, opacity: .9 });
     pl.addTo(major || st !== "grey" ? majorGroup : minorGroup); lines[r[0]] = pl;
   }
   syncMinor();
@@ -285,7 +284,17 @@ $("#q").oninput = e => {
   } catch (e) { console.error(e); toast("Couldn't load data"); }
   $("#loading").remove();
 })();
-map.on("click", () => { $("#results").style.display = "none"; });
+// Tap anywhere: pick the nearest road within ~30 px, at any zoom level
+map.on("click", e => {
+  $("#results").style.display = "none";
+  if (!ROADS.length) return;
+  const { lat, lng } = e.latlng;
+  const mPerPx = 156543.03 * Math.cos(lat * Math.PI / 180) / Math.pow(2, map.getZoom());
+  const n = nearest(lat, lng);
+  if (n.r && n.m <= Math.max(30 * mPerPx, 15)) { if (map.getZoom() < MINOR_ZOOM && !MAJOR.has(n.r[2].replace("_link",""))) focusRoad(n.r[0]); card(n.r[0]); }
+  else if (!wardLayer.getBounds().contains(e.latlng)) toast("Outside the pilot area (South City Corporation)");
+  else toast(map.getZoom() < MINOR_ZOOM ? "Zoom in and tap the road" : "No mapped road here. Tap closer to a road");
+});
 </script>
 </body>
 </html>
