@@ -60,7 +60,7 @@ button,.btn{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:1
   <div id="results"></div>
   <div class="banner" id="banner"></div>
 </div>
-<div class="legend"><div id="zoomhint" style="font-weight:600;margin-bottom:4px">Zoom in to tap side roads</div><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#ea580c"></i>Govt road work (tender)</div><div><i style="background:#7c3aed"></i>Under construction (OSM)</div><div><i style="background:#2563eb;opacity:.35"></i>No reports yet · tap any road</div></div>
+<div class="legend"><div id="zoomhint" style="font-weight:600;margin-bottom:4px">Zoom in to tap side roads</div><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#ea580c"></i>Govt road work (tender)</div><div><i style="background:#7c3aed"></i>Under construction (OSM)</div><div><i style="background:#0f172a"></i>GBA planned corridors</div><div><i style="background:#2563eb;opacity:.35"></i>No reports yet · tap any road</div></div>
 <aside class="sheet" id="sheet" aria-live="polite"></aside>
 <div class="toast" id="toast"></div>
 <div class="loading" id="loading">Loading Bengaluru roads…</div>
@@ -160,7 +160,7 @@ function card(id) {
   <div style="margin-top:7px"><span class="status s-${st.c}">${st.t}</span></div></div><button class="x" onclick="closeSheet()" aria-label="Close">✕</button></div>
 
   <div class="sec"><h3>Who is responsible for fixing it</h3><ol class="chain">
-    <li><span class="n">1</span><div><div class="r">Who maintains the road <span class="tag t-likely">LIKELY</span></div><div class="v">${o.v}</div><div class="d">${o.d}</div></div></li>
+    <li id="owner-li"><span class="n">1</span><div><div class="r">Who maintains the road <span class="tag t-likely">LIKELY</span></div><div class="v">${o.v}</div><div class="d">${o.d}</div><div class="d" id="gba-reg">Checking the official GBA road register…</div></div></li>
     <li><span class="n">2</span><div><div class="r">Engineers' office for this ward <span class="tag t-ok">OFFICIAL MAP</span></div><div class="v">${esc((w.subdivision||"").replace("ARO- ","Sub-division: "))}</div><div class="d">${esc((w.division||"").replace("RO- ","Division: "))} · Zone: ${esc(w.zone_name||"")} · ${wardTxt} (${esc(w.ward_name_kn||"")}), population ${(w.population||0).toLocaleString("en-IN")}</div></div></li>
     <li><span class="n">3</span><div><div class="r">Head of the corporation <span class="tag t-ok">VERIFIED</span></div><div class="v">${esc(corp.commissioner)}</div><div class="d">Commissioner, ${esc(corp.name)}. GBA Chief Commissioner: ${esc(OFF.gba.chief_commissioner)}.</div></div></li>
     <li><span class="n">4</span><div><div class="r">Ward corporator (elected) <span class="tag t-none">NONE</span></div><div class="v">No elected corporator</div><div class="d">${esc(OFF.corporators.detail)} ${days > 0 ? `<b>Election deadline in ${days} days</b> (31 Dec 2026; the election commission has asked for 31 Jan 2027).` : esc(OFF.corporators.election)}</div></div></li>
@@ -187,10 +187,11 @@ function card(id) {
   <div class="sec src"><h3>Sources</h3>
     ${[OFF.wards_source, ...OFF.corporation_sources, ...OFF.mla_sources, ...OFF.corporators.sources, ...OFF.gba.sources].map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join("")}
     <a href="https://www.openstreetmap.org/way/${osm}" target="_blank" rel="noopener">This road in OpenStreetMap (way ${osm})</a>
-    <span class="muted" style="font-size:12px">Officials checked ${esc(OFF.checked)}. "Likely" = worked out from road type; not yet confirmed by an official road register.</span>
+    <span class="muted" style="font-size:12px">Officials checked ${esc(OFF.checked)}. "Likely" = worked out from OpenStreetMap road type; "Official register" = matched to GBA's road centreline register.</span>
   </div>`;
   $("#sheet").classList.add("open"); $("#sheet").scrollTop = 0;
   highlight(id);
+  officialRoad(id);
 }
 
 const STATUS_TXT = { PUBLISHED: "Tender open", CLOSED: "Bids closed", UNDER_EVALUATION: "Bids under evaluation", EVALUATION_COMPLETED: "Contractor selected", AWARDED: "Awarded" };
@@ -233,6 +234,63 @@ function drawWorks(w) {
   const n = (w.tenders || []).length, nm = Object.keys(w.geom || {}).length;
   if (n) $("#banner").innerHTML += `<br>🚧 ${n} road tenders since 2025 (${nm} road segments matched) · ${(w.construction || []).length} roads under construction.`;
   if ($("#sheet").classList.contains("open")) { const h = location.hash.match(/^#road-(\d+)/); if (h) card(+h[1]); }
+}
+
+
+// Official GBA road register (public GBA GeoServer). Works for visitors in India; GBA servers block most foreign networks.
+const GEO = "https://gisapps.bbmp.gov.in/geoserver";
+const REG = {}; let regSeq = 0;
+function segDist(lat, lng, cs) { // cs: [[lng,lat],...]
+  let bd = 1e9; const kx = Math.cos(lat * Math.PI / 180);
+  for (let i = 1; i < cs.length; i++) {
+    const ax = (cs[i-1][0]-lng)*kx, ay = cs[i-1][1]-lat, bx = (cs[i][0]-lng)*kx, by = cs[i][1]-lat;
+    const dx = bx-ax, dy = by-ay, L2 = dx*dx+dy*dy; let t = L2 ? -(ax*dx+ay*dy)/L2 : 0; t = Math.max(0, Math.min(1, t));
+    bd = Math.min(bd, (ax+t*dx)**2 + (ay+t*dy)**2);
+  }
+  return Math.sqrt(bd) * 111200;
+}
+async function officialRoad(id) {
+  const seq = ++regSeq, r = byId[id], f = r[5];
+  const pts = [mid(f), [f[1], f[0]], [f[f.length-1], f[f.length-2]]];
+  const show = html => { if (seq === regSeq && $("#gba-reg")) $("#gba-reg").innerHTML = html; };
+  try {
+    let best = REG[id];
+    if (!best) {
+      const [lat, lng] = pts[0], d = 0.0006;
+      const u = `${GEO}/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=roadhistory:centerline&outputFormat=application/json&srsName=EPSG:4326&count=60&bbox=${lat-d},${lng-d},${lat+d},${lng+d},urn:ogc:def:crs:EPSG::4326`;
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 9000);
+      const j = await (await fetch(u, { signal: ctl.signal })).json();
+      let bd = 1e9;
+      for (const ft of j.features || []) {
+        const g = ft.geometry; const lines = g.type === "MultiLineString" ? g.coordinates : [g.coordinates];
+        const d = Math.max(...pts.map(([la, ln]) => Math.min(...lines.map(cs => segDist(la, ln, cs)))));
+        if (d < bd) { bd = d; best = { ...ft.properties, dist: d }; }
+      }
+      if (!best || bd > 35) return show(`<i>Not found in the official GBA road register near this segment.</i>`);
+      REG[id] = best;
+    }
+    const t = best.TYPE, corp = corpOf(WARDS[r[4]] || {}).name;
+    const own = t === "BDA" ? "Bangalore Development Authority (BDA) road" : t === "Arterial Road" || t === "Sub Arterial Road" ? `${corp}: ${t.toLowerCase()} (city-wide road network)` : t === "Not Existing Roads" ? "Marked “Not existing road” in the register (may be a new or private road)" : `${corp}: ${t.toLowerCase()} (ward road)`;
+    if (!/NHAI|NICE/.test($("#owner-li .v")?.textContent || "")) {
+      $("#owner-li .tag").outerHTML = '<span class="tag t-ok">OFFICIAL REGISTER</span>';
+      $("#owner-li .v").textContent = own;
+    }
+    show(`GBA road register: <b>${esc(t)}</b>${best.STREETID ? " · street ID " + esc(best.STREETID) : ""}${best.NAME ? " · “" + esc(best.NAME) + "”" : ""}${best.LENGTH_MTS ? " · " + Math.round(best.LENGTH_MTS) + " m" : ""}. <a href="https://gba.karnataka.gov.in/gisviewer/index.html" target="_blank" rel="noopener" style="color:var(--blue)">Source: GBA GIS</a>`);
+  } catch (e) { show(`<i>Couldn't reach the official GBA road register (GBA's servers only answer some networks).</i>`); }
+}
+async function gbaProjects() {
+  const layers = ["2026-08-19_elevated-corridor", "2026-08-19_tunnel", "2026-08-19_prr"];
+  for (const L of layers) {
+    try {
+      const j = await (await fetch(`${GEO}/urban-mobility/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=urban-mobility:${L}&outputFormat=application/json&srsName=EPSG:4326`)).json();
+      L.length; for (const ft of j.features) {
+        const p = ft.properties, g = ft.geometry; const lines = g.type === "MultiLineString" ? g.coordinates : [g.coordinates];
+        const pl = window.L.polyline(lines.map(cs => cs.map(c => [c[1], c[0]])), { renderer, color: "#0f172a", weight: 5, opacity: .75, dashArray: "2 8" }).addTo(worksGroup);
+        pl.bindPopup(`<b>${esc(p.name || p.title)}</b><br>${esc(p.project || "")}${p.segment ? "<br>" + esc(p.segment) : ""}<br>Length: ${esc(p.approx_length || "?")}<br>Status: <b>${esc(p.status || "not stated")}</b><br><span style="color:#5d6470">GBA urban-mobility map (snapshot 19 Aug 2026). No start or end dates published.</span><br><a href="https://gisapps.bbmp.gov.in/urban-mobility/" target="_blank" rel="noopener">Source: GBA</a>`);
+        pl.on("click", e => window.L.DomEvent.stop(e));
+      }
+    } catch (e) { /* GBA server not reachable from this network */ }
+  }
 }
 
 window.closeSheet = () => { $("#sheet").classList.remove("open"); highlight(null); history.replaceState(null, "", location.pathname); };
@@ -363,6 +421,7 @@ const wardLabel = w => `Ward ${w.ward_no} ${w.ward_name} · ${w.corporation}`;
     const openHash = async () => { const h = location.hash.match(/^#road-(\d+)(?:-c(\d+_\d+))?$/); if (h) await focusRoad(+h[1], h[2]); };
     window.addEventListener("hashchange", openHash); await openHash();
     syncMinor();
+    gbaProjects();
     get("data/works.json").then(w => { if (w) drawWorks(w); else WORKS_META = { tenders: [] }; });
     get("data/roads/names.json").then(ns => { for (const n of ns || []) index.push({ t: n[0], l: n[0].toLowerCase(), s: wardLabel(WARDS[n[3]] || {}), id: n[1], cell: n[2], lat: n[4], lng: n[5] }); });
   } catch (e) { console.error(e); toast("Couldn't load data"); }
