@@ -60,7 +60,7 @@ button,.btn{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:1
   <div id="results"></div>
   <div class="banner" id="banner"></div>
 </div>
-<div class="legend"><div id="zoomhint" style="font-weight:600;margin-bottom:4px">Zoom in to tap side roads</div><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#2563eb;opacity:.35"></i>No reports yet · tap any road</div></div>
+<div class="legend"><div id="zoomhint" style="font-weight:600;margin-bottom:4px">Zoom in to tap side roads</div><div><i style="background:#d92d20"></i>Reported broken</div><div><i style="background:#16803c"></i>Reported fixed</div><div><i style="background:#ea580c"></i>Govt road work (tender)</div><div><i style="background:#7c3aed"></i>Under construction (OSM)</div><div><i style="background:#2563eb;opacity:.35"></i>No reports yet · tap any road</div></div>
 <aside class="sheet" id="sheet" aria-live="polite"></aside>
 <div class="toast" id="toast"></div>
 <div class="loading" id="loading">Loading Bengaluru roads…</div>
@@ -83,7 +83,8 @@ const MAJOR = new Set(["motorway","trunk","primary","secondary","tertiary"]);
 const MINOR_ZOOM = 15;
 const majorGroup = L.layerGroup().addTo(map), minorGroup = L.layerGroup(), reportGroup = L.layerGroup().addTo(map);
 
-let OFF, WARDS = {}, REPORTS = {}, byId = {}, lines = {}, wardLayer, GRID, NAMES = [];
+let OFF, WARDS = {}, REPORTS = {}, byId = {}, lines = {}, wardLayer, GRID, NAMES = [], WORKS = {}, WARD_WORKS = {}, WORKS_META = null;
+const worksGroup = L.layerGroup().addTo(map);
 const loadedCells = {};
 
 const CLASS = { motorway:"Highway", trunk:"Highway", primary:"Arterial road", secondary:"Sub-arterial road", tertiary:"Main ward road", residential:"Ward / residential road", unclassified:"Ward road", living_street:"Residential lane" };
@@ -113,7 +114,7 @@ const latlngs = f => { const ll = []; for (let i = 0; i < f.length; i += 2) ll.p
 
 function addRoad(r, group) {
   if (byId[r[0]]) return; byId[r[0]] = r;
-  if (REPORTS[r[0]]) return; // drawn in reportGroup
+  if (REPORTS[r[0]] || WORKS[r[0]]) return; // drawn in reportGroup / worksGroup
   const major = MAJOR.has(r[2].replace("_link",""));
   lines[r[0]] = L.polyline(latlngs(r[5]), { renderer, interactive: false, color: "#2563eb", weight: major ? 5 : 4, opacity: major ? .18 : .12 }).addTo(group);
 }
@@ -177,6 +178,8 @@ function card(id) {
   <p class="muted" style="margin:8px 0 0">Share this road: <a href="https://wa.me/?text=${encodeURIComponent(nm + " (Ward " + w.ward_no + " " + (w.ward_name||"") + ") is broken. See who's responsible: " + shareUrl(id))}" target="_blank" rel="noopener" style="color:var(--blue)">WhatsApp</a> · <a href="https://www.google.com/maps?q=${m[0]},${m[1]}" target="_blank" rel="noopener" style="color:var(--blue)">Open in Google Maps</a></p>
   </div>
 
+  ${worksSection(id, key)}
+
   <div class="sec"><h3>Resident reports (${reps.length})</h3>${reps.length ? reps.map(x => `<div class="item"><b>${esc(x.problem || "Report")}</b> · ${x.state === "fixed" ? '<span class="status s-green">fixed</span>' : x.state === "open" ? '<span class="status s-red">open</span>' : '<span class="status s-grey">closed</span>'}<br>Reported ${esc(x.created)}${x.since ? " · broken since " + esc(x.since) : ""}${x.complaint ? " · complaint no. " + esc(x.complaint) : ""}<br>${x.details ? esc(x.details) + "<br>" : ""}<a href="${esc(x.url)}" target="_blank" rel="noopener">See photos &amp; updates</a></div>`).join("") : `<p class="muted">No one has reported this stretch yet. A dated photo is the strongest evidence. Note that "first reported here" isn't the same as "broken since".</p>`}</div>
 
   <div class="sec"><h3>Promises (${proms.length})</h3>${proms.length ? proms.map(x => `<div class="item"><b>${esc(x.who)}</b> <span class="muted">(${esc(x.role)})</span><br>“${esc(x.promise)}”${x.deadline ? "<br>Deadline: <b>" + esc(x.deadline) + "</b>" : ""}<br>${x.verified ? '<span class="tag t-ok">SOURCE CHECKED</span> ' : '<span class="tag t-likely">UNCHECKED</span> '}<a href="${esc(x.url)}" target="_blank" rel="noopener">Source &amp; status</a></div>`).join("") : `<p class="muted">No promises recorded for this road. With the corporation election coming, ask candidates to commit to this stretch with a date, then record it here with a source.</p>`}</div>
@@ -189,6 +192,47 @@ function card(id) {
   $("#sheet").classList.add("open"); $("#sheet").scrollTop = 0;
   highlight(id);
 }
+
+const STATUS_TXT = { PUBLISHED: "Tender open", CLOSED: "Bids closed", UNDER_EVALUATION: "Bids under evaluation", EVALUATION_COMPLETED: "Contractor selected", AWARDED: "Awarded" };
+const rupees = v => v ? "₹" + (v >= 1e7 ? (v / 1e7).toFixed(2) + " crore" : (v / 1e5).toFixed(1) + " lakh") : "";
+function tenderHtml(t) {
+  return `<div class="item"><b>${esc(t.title)}</b><br>
+  <span class="status ${t.status === "AWARDED" || t.status === "EVALUATION_COMPLETED" ? "s-green" : "s-grey"}">${esc(STATUS_TXT[t.status] || t.status)}</span>
+  ${t.ecv ? " · estimate " + rupees(t.ecv) : ""}${t.bid ? " · winning bid " + rupees(t.bid) : ""}<br>
+  Tender published ${esc(t.published || "?")}${t.awarded ? " · <b>awarded " + esc(t.awarded) + "</b> (work can start)" : ""}${t.contractor ? "<br>Contractor: <b>" + esc(t.contractor) + "</b>" : ""}<br>
+  <span class="muted">Office: ${esc(t.office || t.corp)} · ${esc(t.no || "")} · matched by ${esc(t.match)}</span><br>
+  <a href="https://kppp.karnataka.gov.in/supplier-registration-service/v1/api/portal-service/${t.nit}/works-tender-full-view" target="_blank" rel="noopener">Official tender record (KPPP)</a></div>`;
+}
+function worksSection(id, key) {
+  if (!WORKS_META) return `<div class="sec"><h3>Government road works</h3><p class="muted">Loading tender data…</p></div>`;
+  const own = WORKS[id] || [], ward = (WARD_WORKS[key] || []).filter(t => !own.includes(t)).slice(0, 5);
+  return `<div class="sec"><h3>Government road works on this road (${own.length})</h3>
+  ${own.length ? own.map(tenderHtml).join("") : `<p class="muted">No tender since 2025 names this road.</p>`}
+  ${ward.length ? `<h3 style="margin-top:12px">Other road tenders in this ward (${(WARD_WORKS[key] || []).length})</h3>` + ward.map(tenderHtml).join("") : ""}
+  <p class="muted" style="margin:6px 0 0">Tenders come from the Karnataka Public Procurement Portal. It publishes the tender and award dates but <b>not the completion deadline</b>, which sits in the tender document and work order. Ask the sub-division engineer for it, or file an RTI. Matching tenders to roads by name is automatic, so check the title.</p></div>`;
+}
+function drawWorks(w) {
+  WORKS_META = w;
+  for (const t of w.tenders || []) {
+    for (const [rid] of t.roads || []) (WORKS[rid] ||= []).push(t);
+    for (const k of t.wards || []) (WARD_WORKS[k] ||= []).push(t);
+  }
+  for (const [rid, r] of Object.entries(w.geom || {})) {
+    if (REPORTS[rid]) continue;
+    byId[r[0]] = r;
+    if (lines[r[0]]) { [majorGroup, minorGroup].forEach(g => g.removeLayer(lines[r[0]])); }
+    lines[r[0]] = L.polyline(latlngs(r[5]), { renderer, interactive: false, color: "#ea580c", weight: (WEIGHT[r[2].replace("_link","")] || 3) + 2, opacity: .85 }).addTo(worksGroup);
+  }
+  for (const c of w.construction || []) {
+    const pl = L.polyline(latlngs(c.geom), { renderer, color: "#7c3aed", weight: 6, opacity: .85, dashArray: "8 6" }).addTo(worksGroup);
+    pl.bindPopup(`<b>${esc(c.name || "Unnamed road")}</b><br>Under construction (${esc(c.kind || "road")})${c.start ? "<br>Started: " + esc(c.start) : ""}${c.opening ? "<br>Expected opening: " + esc(c.opening) : "<br>No opening date recorded"}<br><a href="https://www.openstreetmap.org/way/${c.id}" target="_blank" rel="noopener">Source: OpenStreetMap</a>`);
+    pl.on("click", e => L.DomEvent.stop(e));
+  }
+  const n = (w.tenders || []).length, nm = Object.keys(w.geom || {}).length;
+  if (n) $("#banner").innerHTML += `<br>🚧 ${n} road tenders since 2025 (${nm} road segments matched) · ${(w.construction || []).length} roads under construction.`;
+  if ($("#sheet").classList.contains("open")) { const h = location.hash.match(/^#road-(\d+)/); if (h) card(+h[1]); }
+}
+
 window.closeSheet = () => { $("#sheet").classList.remove("open"); highlight(null); history.replaceState(null, "", location.pathname); };
 
 function issueUrl(t, id, nm) { return `https://github.com/${REPO}/issues/new?template=${t}&road_id=${id}&road_name=${encodeURIComponent(nm)}&title=${encodeURIComponent((t === "report.yml" ? "[Road] " : "[Promise] ") + nm)}`; }
@@ -317,6 +361,7 @@ const wardLabel = w => `Ward ${w.ward_no} ${w.ward_name} · ${w.corporation}`;
     const openHash = async () => { const h = location.hash.match(/^#road-(\d+)(?:-c(\d+_\d+))?$/); if (h) await focusRoad(+h[1], h[2]); };
     window.addEventListener("hashchange", openHash); await openHash();
     syncMinor();
+    get("data/works.json").then(w => { if (w) drawWorks(w); else WORKS_META = { tenders: [] }; });
     get("data/roads/names.json").then(ns => { for (const n of ns || []) index.push({ t: n[0], l: n[0].toLowerCase(), s: wardLabel(WARDS[n[3]] || {}), id: n[1], cell: n[2], lat: n[4], lng: n[5] }); });
   } catch (e) { console.error(e); toast("Couldn't load data"); }
   $("#loading").remove();

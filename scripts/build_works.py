@@ -172,12 +172,26 @@ def main():
     if rows:
         enrich(rows, log)
         match_roads(rows)
+    # geometry for matched road segments so the map can draw them without loading every tile
+    want = {}
+    for r in rows.values():
+        for rid, cell, *_ in r.get("roads", []):
+            want.setdefault(cell, set()).add(rid)
+    geom = {}
+    for cell, ids in want.items():
+        for fn in ("data/roads/major.json", f"data/roads/c_{cell}.json"):
+            if not os.path.exists(fn):
+                continue
+            d = json.load(open(fn))
+            for rec in (d["roads"] if isinstance(d, dict) else d):
+                if rec[0] in ids:
+                    geom[str(rec[0])] = rec
     cons = osm_construction(log)
     status["osm_construction"] = len(cons)
     status["log"] = log[:40]
     out = {"generated": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()), "status": status,
            "tenders": sorted(rows.values(), key=lambda r: r.get("published") or "", reverse=True),
-           "construction": cons}
+           "construction": cons, "geom": geom}
     if not rows and os.path.exists("data/works.json"):
         old = json.load(open("data/works.json"))
         out["tenders"] = old.get("tenders", [])  # keep last good copy if the portal was unreachable
