@@ -233,23 +233,183 @@
  "corporations": {
   "Central": {
    "name": "Bengaluru Central City Corporation",
-   "commissioner": "Rajendra Cholan P, IAS"
+   "commissioner": "Rajendra Cholan P, IAS",
+   "commissioner_phone": "94485 73007",
+   "email": "commissionerbccc@gmail.com",
+   "acd": [
+    "Daljeet Kumar, IAS",
+    "99276 62057"
+   ],
+   "control_room": "080-2297 5803 · 94806 85702",
+   "office": "10th Floor, Multipurpose P.U. Building, Mahatma Gandhi Road, Bengaluru 560001",
+   "zones": {
+    "C.V. Raman Nagar": {
+     "zone": "Zone 1",
+     "jc": [
+      "Ranganath K, KAS",
+      "96206 30581"
+     ],
+     "ce": [
+      "Suguna",
+      "94806 83016"
+     ]
+    },
+    "Gandhinagara": {
+     "zone": "Zone 2",
+     "jc": [
+      "Hemanth Sharan, KMAS",
+      "98458 16773"
+     ],
+     "ce": [
+      "Vijayakumar Haridas",
+      "94806 83059"
+     ]
+    }
+   }
   },
   "East": {
    "name": "Bengaluru East City Corporation",
-   "commissioner": "Ramesh D S, IAS"
+   "commissioner": "Ramesh D S, IAS",
+   "commissioner_phone": "87627 08901",
+   "email": "commissioner.becc@gmail.com",
+   "acd": [
+    "Lokhande Snehal Sudhakar, IAS",
+    "94806 83831"
+   ],
+   "control_room": "080-2851 2300 · 080-2851 2301 · 94806 85706",
+   "office": "RHB Colony, opp. Phoenix Mall, Whitefield Main Road, Mahadevapura, Bengaluru 560048",
+   "zones": {
+    "Mahadevapura": {
+     "zone": "Zone 1",
+     "jc": [
+      "Dr Dakshayini, KAS",
+      "98459 25372"
+     ],
+     "ce": [
+      "M Lokesh",
+      "94806 83176"
+     ]
+    },
+    "K.R. Pura": {
+     "zone": "Zone 2",
+     "jc": [
+      "Sudha, KAS",
+      "99015 75664"
+     ],
+     "ce": [
+      "M Krishnamurthy",
+      "94806 83822"
+     ]
+    }
+   }
   },
   "North": {
    "name": "Bengaluru North City Corporation",
-   "commissioner": "Pommala Sunil Kumar, IAS"
+   "commissioner": "Pommala Sunil Kumar, IAS",
+   "commissioner_phone": "94806 84949",
+   "email": "bengalurunorthcitycorporation@gmail.com",
+   "acd": [
+    "Latha R, IAS",
+    "98452 00485"
+   ],
+   "control_room": "080-2297 5936 · 080-2863 6671 · 94806 85705",
+   "office": "Byatarayanapura, Amruthahalli Main Road, Ballari Road, Bengaluru 560092",
+   "zones": {
+    "Byatarayanapura": {
+     "zone": "Zone 1",
+     "jc": [
+      "Mohammed Naeem Momin, KAS",
+      "96207 57186"
+     ],
+     "ce": [
+      "S P Ranganath",
+      "94806 84473"
+     ]
+    },
+    "Yelahanka": {
+     "zone": "Zone 2",
+     "jc": [
+      "K R Pallavi, KAS",
+      "95918 60887"
+     ],
+     "ce": [
+      "Yamuna",
+      "94806 83126"
+     ]
+    }
+   }
   },
   "South": {
    "name": "Bengaluru South City Corporation",
-   "commissioner": "K N Ramesh, IAS"
+   "commissioner": "K N Ramesh, IAS",
+   "commissioner_phone": "94825 09549",
+   "email": "comm.south.gba@gmail.com",
+   "acd": [
+    "Naveen Kumar Raju S, IAS",
+    "73383 72368"
+   ],
+   "control_room": "080-2656 6362 · 080-2297 5703 · 94806 85704",
+   "office": "9th Main Road, 9th Cross Road, 2nd Stage, Jayanagar, Bengaluru 560011",
+   "zones": {
+    "Jayanagar": {
+     "zone": "Zone 1",
+     "jc": [
+      "Madhu N N, KAS",
+      "94814 92649"
+     ],
+     "ce": [
+      "Basavaraj Kabade",
+      "97396 25025"
+     ]
+    },
+    "Bommanahalli": {
+     "zone": "Zone 2",
+     "jc": [
+      "Satish Babu, KAS",
+      "87627 16711"
+     ],
+     "ce": [
+      "K V Ravi",
+      "94806 83818"
+     ]
+    }
+   }
   },
   "West": {
    "name": "Bengaluru West City Corporation",
-   "commissioner": "Dr Rajendra K V, IAS"
+   "commissioner": "Dr Rajendra K V, IAS",
+   "commissioner_phone": "99722 46800",
+   "email": "commissioner.bwcc@gmail.com",
+   "acd": [
+    "Digvijay Bhodke, IAS",
+    "94806 83345"
+   ],
+   "control_room": "080-2356 1692 · 080-2346 3366 · 94806 85703",
+   "office": "18th Cross Road, Ideal Homes Township, Rajarajeshwari Nagar, Bengaluru 560098",
+   "zones": {
+    "Rajarajeshwarinagar": {
+     "zone": "Zone 1",
+     "jc": [
+      "Arathi Anand, KAS",
+      "80730 77109"
+     ],
+     "ce": [
+      "Svayamprabha",
+      "96321 84693"
+     ]
+    },
+    "Malleshwaram": {
+     "zone": "Zone 2",
+     "jc": [
+      "Sangappa, KAS",
+      "99026 02220"
+     ],
+     "ce": [
+      "G Vishvanath",
+      "94806 84268"
+     ]
+    }
+   }
   }
  },
  "corporation_sources": [
@@ -261,5 +421,13 @@
    "title": "South Corporation maiden budget presented by Commissioner K N Ramesh (Mar 2026)",
    "url": "https://theprint.in/india/bengaluru-south-corporation-presents-rs-3825-95-crore-maiden-budget/2891149"
   }
- ]
+ ],
+ "officer_source": {
+  "title": "GBA: Bengaluru City Corporations Contact Details (as on 08-12-2025)",
+  "url": "https://updates.bbmp.gov.in/v1/api/file/835746023571-City%20Corp%20Contact%20Details.pdf"
+ },
+ "pio_source": {
+  "title": "GBA: PIOs and First Appellate Authorities under RTI (June 2026)",
+  "url": "https://updates.bbmp.gov.in/v1/api/file/715414672295-PIO%20and%20FAA%20list%2009062026.pdf"
+ }
 }

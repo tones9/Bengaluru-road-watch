@@ -90,6 +90,8 @@ const loadedCells = {};
 const CLASS = { motorway:"Highway", trunk:"Highway", primary:"Arterial road", secondary:"Sub-arterial road", tertiary:"Main ward road", residential:"Ward / residential road", unclassified:"Ward road", living_street:"Residential lane" };
 const cls = h => CLASS[h.replace("_link","")] || "Road";
 const WEIGHT = { motorway:6, trunk:6, primary:5, secondary:4.5, tertiary:3.5 };
+const zoneInfo = w => ((OFF.corporations[w.corporation] || {}).zones || {})[w.zone_name] || {};
+const tel = n => `<a href="tel:${String(n).replace(/[^0-9]/g, "")}" style="color:var(--blue)">${esc(n)}</a>`;
 const corpOf = w => OFF.corporations[w.corporation] || { name: "GBA city corporation", commissioner: "" };
 
 function owner(r, corp) {
@@ -161,12 +163,14 @@ function card(id) {
 
   <div class="sec"><h3>Who is responsible for fixing it</h3><ol class="chain">
     <li id="owner-li"><span class="n">1</span><div><div class="r">Who maintains the road <span class="tag t-likely">LIKELY</span></div><div class="v">${o.v}</div><div class="d">${o.d}</div><div class="d" id="gba-reg">Checking the official GBA road register…</div></div></li>
-    <li><span class="n">2</span><div><div class="r">Engineers' office for this ward <span class="tag t-ok">OFFICIAL MAP</span></div><div class="v">${esc((w.subdivision||"").replace("ARO- ","Sub-division: "))}</div><div class="d">${esc((w.division||"").replace("RO- ","Division: "))} · Zone: ${esc(w.zone_name||"")} · ${wardTxt} (${esc(w.ward_name_kn||"")}), population ${(w.population||0).toLocaleString("en-IN")}</div></div></li>
-    <li><span class="n">3</span><div><div class="r">Head of the corporation <span class="tag t-ok">VERIFIED</span></div><div class="v">${esc(corp.commissioner)}</div><div class="d">Commissioner, ${esc(corp.name)}. GBA Chief Commissioner: ${esc(OFF.gba.chief_commissioner)}.</div></div></li>
+    <li><span class="n">2</span><div><div class="r">Engineers' office for this ward <span class="tag t-ok">OFFICIAL MAP</span></div><div class="v">${esc((w.subdivision||"").replace("ARO- ","Sub-division: "))}</div><div class="d">Assistant Executive Engineer (AEE) for this sub-division, under the Executive Engineer for ${esc((w.division||"").replace("RO- ",""))} division. Their names aren't published; ask the control room (step 3b). · Zone: ${esc(w.zone_name||"")} · ${wardTxt} (${esc(w.ward_name_kn||"")}), population ${(w.population||0).toLocaleString("en-IN")}</div></div></li>
+    <li><span class="n">3</span><div><div class="r">Zone officers (${esc(zoneInfo(w).zone || "")} · ${esc(w.zone_name || "")}) <span class="tag t-ok">OFFICIAL LIST</span></div>${zoneInfo(w).ce ? `<div class="v">${esc(zoneInfo(w).ce[0])}</div><div class="d">Chief Engineer, ${esc(w.zone_name)} zone · ${tel(zoneInfo(w).ce[1])}</div><div class="v" style="margin-top:6px">${esc(zoneInfo(w).jc[0])}</div><div class="d">Joint Commissioner, ${esc(w.zone_name)} zone · ${tel(zoneInfo(w).jc[1])}</div>` : `<div class="d">Not listed.</div>`}</div></li>
+    <li><span class="n">3b</span><div><div class="r">Head of the corporation <span class="tag t-ok">OFFICIAL LIST</span></div><div class="v">${esc(corp.commissioner)}</div><div class="d">Commissioner, ${esc(corp.name)}${corp.commissioner_phone ? " · " + tel(corp.commissioner_phone) : ""}${corp.email ? ` · <a href="mailto:${esc(corp.email)}" style="color:var(--blue)">${esc(corp.email)}</a>` : ""}</div>${corp.acd ? `<div class="d">Additional Commissioner (Development): <b>${esc(corp.acd[0])}</b> · ${tel(corp.acd[1])}</div>` : ""}${corp.control_room ? `<div class="d">Control room: ${esc(corp.control_room)}</div>` : ""}${corp.office ? `<div class="d">Office: ${esc(corp.office)}</div>` : ""}<div class="d">Above them: GBA Chief Commissioner ${esc(OFF.gba.chief_commissioner)} · Minister for Greater Bengaluru Development.</div></div></li>
     <li><span class="n">4</span><div><div class="r">Ward corporator (elected) <span class="tag t-none">NONE</span></div><div class="v">No elected corporator</div><div class="d">${esc(OFF.corporators.detail)} ${days > 0 ? `<b>Election deadline in ${days} days</b> (31 Dec 2026; the election commission has asked for 31 Jan 2027).` : esc(OFF.corporators.election)}</div></div></li>
     <li><span class="n">5</span><div><div class="r">MLA for this area <span class="tag t-ok">VERIFIED</span></div><div class="v">${mla ? esc(mla.name) + " · " + esc(mla.party) : "Not found"}</div><div class="d">${mla ? esc(mla.constituency) + " constituency (no. " + w.assembly_no + "), elected " + mla.elected + ". MLAs don't repair roads themselves, but they control local development funds and can push the corporation." : ""}</div></div></li>
     <li><span class="n">6</span><div><div class="r">If the road was dug up</div><div class="v">The agency that dug it must restore it</div><div class="d">Water (BWSSB), power (BESCOM), gas and telecom need road-cutting permission and must restore the surface. The corporation's engineers should inspect it before signing off.</div></div></li>
-  </ol></div>
+  </ol>
+  <p class="muted" style="margin:6px 0 0">Escalate in order: complaint (1533) → sub-division engineer → Chief Engineer → Commissioner → MLA. Officer names and numbers come from GBA's published contact list (as on 8 Dec 2025) and may have changed after transfers.</p></div>
 
   <div class="sec"><h3>Take action</h3><div class="acts">
     <button onclick="copyComplaint('${id}')">Copy complaint</button>
@@ -185,7 +189,7 @@ function card(id) {
   <div class="sec"><h3>Promises (${proms.length})</h3>${proms.length ? proms.map(x => `<div class="item"><b>${esc(x.who)}</b> <span class="muted">(${esc(x.role)})</span><br>“${esc(x.promise)}”${x.deadline ? "<br>Deadline: <b>" + esc(x.deadline) + "</b>" : ""}<br>${x.verified ? '<span class="tag t-ok">SOURCE CHECKED</span> ' : '<span class="tag t-likely">UNCHECKED</span> '}<a href="${esc(x.url)}" target="_blank" rel="noopener">Source &amp; status</a></div>`).join("") : `<p class="muted">No promises recorded for this road. With the corporation election coming, ask candidates to commit to this stretch with a date, then record it here with a source.</p>`}</div>
 
   <div class="sec src"><h3>Sources</h3>
-    ${[OFF.wards_source, ...OFF.corporation_sources, ...OFF.mla_sources, ...OFF.corporators.sources, ...OFF.gba.sources].map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join("")}
+    ${[OFF.wards_source, OFF.officer_source, OFF.pio_source, ...OFF.corporation_sources, ...OFF.mla_sources, ...OFF.corporators.sources, ...OFF.gba.sources].map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join("")}
     <a href="https://www.openstreetmap.org/way/${osm}" target="_blank" rel="noopener">This road in OpenStreetMap (way ${osm})</a>
     <span class="muted" style="font-size:12px">Officials checked ${esc(OFF.checked)}. "Likely" = worked out from OpenStreetMap road type; "Official register" = matched to GBA's road centreline register.</span>
   </div>`;
@@ -271,11 +275,13 @@ async function officialRoad(id) {
     }
     const t = best.TYPE, corp = corpOf(WARDS[r[4]] || {}).name;
     const own = t === "BDA" ? "Bangalore Development Authority (BDA) road" : t === "Arterial Road" || t === "Sub Arterial Road" ? `${corp}: ${t.toLowerCase()} (city-wide road network)` : t === "Not Existing Roads" ? "Marked “Not existing road” in the register (may be a new or private road)" : `${corp}: ${t.toLowerCase()} (ward road)`;
-    if (!/NHAI|NICE/.test($("#owner-li .v")?.textContent || "")) {
+    const osmVal = $("#owner-li .v")?.textContent || "";
+    if (!/NICE/.test(osmVal) && t !== "Not Existing Roads") {
+      if (/NHAI/.test(osmVal)) best.note = `OpenStreetMap tags it ${esc(r[3])}, but GBA's register lists it as a ${esc(t.toLowerCase())}.`;
       $("#owner-li .tag").outerHTML = '<span class="tag t-ok">OFFICIAL REGISTER</span>';
       $("#owner-li .v").textContent = own;
     }
-    show(`GBA road register: <b>${esc(t)}</b>${best.STREETID ? " · street ID " + esc(best.STREETID) : ""}${best.NAME ? " · “" + esc(best.NAME) + "”" : ""}${best.LENGTH_MTS ? " · " + Math.round(best.LENGTH_MTS) + " m" : ""}. <a href="https://gba.karnataka.gov.in/gisviewer/index.html" target="_blank" rel="noopener" style="color:var(--blue)">Source: GBA GIS</a>`);
+    show(`${best.note ? best.note + "<br>" : ""}GBA road register: <b>${esc(t)}</b>${best.STREETID ? " · street ID " + esc(best.STREETID) : ""}${best.NAME ? " · “" + esc(best.NAME) + "”" : ""}${best.LENGTH_MTS ? " · " + Math.round(best.LENGTH_MTS) + " m" : ""}. <a href="https://gba.karnataka.gov.in/gisviewer/index.html" target="_blank" rel="noopener" style="color:var(--blue)">Source: GBA GIS</a>`);
   } catch (e) { show(`<i>Couldn't reach the official GBA road register (GBA's servers only answer some networks).</i>`); }
 }
 async function gbaProjects() {
