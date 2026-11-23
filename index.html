@@ -280,6 +280,7 @@ async function officialRoad(id) {
       if (/NHAI/.test(osmVal)) best.note = `OpenStreetMap tags it ${esc(r[3])}, but GBA's register lists it as a ${esc(t.toLowerCase())}.`;
       $("#owner-li .tag").outerHTML = '<span class="tag t-ok">OFFICIAL REGISTER</span>';
       $("#owner-li .v").textContent = own;
+      const d0 = $("#owner-li .d"); if (d0 && d0.id !== "gba-reg") d0.textContent = t === "BDA" ? "This road is listed under the Bangalore Development Authority in GBA's register. Complain to BDA as well as the corporation." : "Listed in GBA's official road register (details below). The corporation's engineers are responsible for its upkeep.";
     }
     show(`${best.note ? best.note + "<br>" : ""}GBA road register: <b>${esc(t)}</b>${best.STREETID ? " · street ID " + esc(best.STREETID) : ""}${best.NAME ? " · “" + esc(best.NAME) + "”" : ""}${best.LENGTH_MTS ? " · " + Math.round(best.LENGTH_MTS) + " m" : ""}. <a href="https://gba.karnataka.gov.in/gisviewer/index.html" target="_blank" rel="noopener" style="color:var(--blue)">Source: GBA GIS</a>`);
   } catch (e) { show(`<i>Couldn't reach the official GBA road register (GBA's servers only answer some networks).</i>`); }
